@@ -25,18 +25,21 @@ pragma solidity ^0.8.20;
 
 error StageRaise__DeadlineMustBeInFuture();
 error StageRaise__TargetAmountMustBeGreaterThanZero();
+error StageRaise__AmountToFundMustBeGreaterThanZero();
+error StageRaise__ProjectNotActive();
+error StageRaise__ProjectNotFound();
+error StageRaise__TotalRaiseCantSurpassTargetRaise();
 
 contract  StageRaise {
 
     //Errors 
-
-
 
     //Types
 
 
     struct Project {
         address owner; 
+        uint256 projectId;
         string name;
         string description;
         uint256 targetAmount;
@@ -46,15 +49,19 @@ contract  StageRaise {
         uint256 totalContributors;
         uint256 milestoneCount;
         bool milestoneBased;
-
+        address[] contributors;
+        mapping(address => uint256) contibutorsToAmountFunded;
     }
 
     //State Variables
     Project[] public s_projects;
     mapping(uint256 => Project) public projectById;
-    uint256 public projectCount;
+    uint256 public s_projectCount;
 
+    //Events 
 
+    event ProjectCreated (string indexed name, uint256 indexed targetAmount, uint256 deadline);
+    event ProjectFunded (string indexed name, uint256 indexed AmoutFunded, address indexed Funder);
 
 
 
@@ -68,26 +75,47 @@ contract  StageRaise {
         if (_targetAmount <= 0 ){
             revert StageRaise__TargetAmountMustBeGreaterThanZero();
         }
+        
+        s_projectCount++;
 
+        Project storage newProject = projectById[s_projectCount];
 
-        Project memory newProject = Project({
-            owner:msg.sender,
-            name: _name,
-            description: _description,
-            targetAmount: _targetAmount,
-            raisedAmount: 0,
-            deadline: _deadline,
-            isActive: _isActive,
-            totalContributors: 0,
-            milestoneCount: _milestoneCount,
-            milestoneBased: _milestoneBased
-
-        });
-
-        projectCount++;
-        projectById[projectCount] = newProject;
-        s_projects.push(newProject);
+        newProject.name = _name;
+        newProject.owner=msg.sender;
+        newProject.projectId= s_projectCount;
+        newProject.description= _description;
+        newProject.targetAmount=_targetAmount;
+        newProject.raisedAmount = 0;
+        newProject.deadline=_deadline;
+        newProject.isActive=_isActive;
+        newProject.totalContributors=0;
+        newProject.totalContributors=0;
+        newProject.milestoneCount=_milestoneCount;
+        newProject.milestoneBased = _milestoneBased;
     } 
+
+
+    function fundProject( uint256 _projectId) payable  external {
+
+        if (msg.value <= 0 ){
+            revert StageRaise__AmountToFundMustBeGreaterThanZero();
+        }
+        if (projectById[_projectId].owner == address(0)){
+            revert StageRaise__ProjectNotFound();
+        }
+        if (!projectById[_projectId].isActive){
+            revert StageRaise__ProjectNotActive();
+        }
+        if(msg.value+ projectById[_projectId].raisedAmount > projectById[_projectId].targetAmount){
+            revert  StageRaise__TotalRaiseCantSurpassTargetRaise();
+
+        }
+        Project storage project = projectById[_projectId];
+        project.raisedAmount += msg.value;
+        project.contributors.push(msg.sender);
+        project.totalContributors = project.contributors.length;
+        project.contibutorsToAmountFunded[msg.sender] += msg.value;
+    }
 
 
     
@@ -95,8 +123,24 @@ contract  StageRaise {
 
     // view & pure functions
 
-    function getProject(uint256 _proejectId) public view returns(Project memory){
-        return projectById[_proejectId];
+    function getProjectBasicInfo(uint256 _projectId) public view returns(address owner, string memory name, string memory decription, uint256 targetAmount, uint256 raisedAmount, uint256 deadline, bool isActive, uint256 totalContributors, uint256 milestoneCount, bool milestoneBased){
+
+        Project storage p = projectById[_projectId];
+
+        return (
+            p.owner,
+            p.name,
+            p.description,
+            p.targetAmount,
+            p.raisedAmount,
+            p.deadline,
+            p.isActive,
+            p.totalContributors,
+            p.milestoneCount,
+            p.milestoneBased
+        );
     }
+
+
 
 }
