@@ -15,6 +15,6 @@ contract DeployStageRaise is Script{
 
         vm.stopBroadcast(); 
 
-        return stageRaise;    
+        return stageRaise;     
     }
 }

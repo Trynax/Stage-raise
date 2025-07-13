@@ -56,7 +56,8 @@ contract  StageRaise {
     //State Variables
     Project[] public s_projects;
     mapping(uint256 => Project) public projectById;
-    uint256 public s_projectCount;
+    uint256  private s_projectCount;
+
 
     //Events 
 
@@ -142,5 +143,8 @@ contract  StageRaise {
     }
 
 
+    function getProjectCount () external view returns(uint256){
+        return s_projectCount;
+    }
 
 }
