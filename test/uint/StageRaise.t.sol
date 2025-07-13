@@ -18,8 +18,18 @@ contract StageRaiseTest is Test{
          stageRaise.createProject(
             "Stage Raise", "decentralized crowdfunding", 2 ether, block.timestamp +20000, true,5, true
         );
-        stageRaise.createProject(
+         stageRaise.createProject(
             "Stage Raise 2", "decentralized crowdfunding 2", 3 ether, block.timestamp +30000, true,5, true
+        );
+        stageRaise.createProject(
+            "Stage Raise 3", "decentralized crowdfunding 3", 2 ether, block.timestamp +20000, true,5, true
+        );
+       
+        stageRaise.createProject(
+            "Stage Raise 4", "decentralized crowdfunding 4", 3 ether, block.timestamp +30000, false,5, true
+        );
+        stageRaise.createProject(
+            "Stage Raise 5", "decentralized crowdfunding 5", 3 ether, block.timestamp +30000, true,5, true
         );
 
     }   
@@ -27,12 +37,10 @@ contract StageRaiseTest is Test{
     // Testing fuctions
 
     function testCreateProject () external{
-       stageRaise.createProject(
-            "Stage Raise3", "decentralized crowdfunding3", 2 ether, block.timestamp +20000, true,5, true
-        );
+       
         (,string memory name,,,,,,,,) = stageRaise.getProjectBasicInfo(1);
 
-        assert(keccak256(bytes(name)) == keccak256(bytes("Stage Raise3")));
+        assert(keccak256(bytes(name)) == keccak256(bytes("Stage Raise")));
     }
 
 
@@ -50,14 +58,14 @@ contract StageRaiseTest is Test{
 
         uint256 projectCount = stageRaise.getProjectCount();
 
-        assertEq(projectCount, 2);
+        assertEq(projectCount, 5);
     }
     // Testing Errors 
 
     function testCreatingProjectDeadlineMustBeInFuture() external{
         vm.expectRevert(StageRaise__DeadlineMustBeInFuture.selector);
         stageRaise.createProject(
-            "Stage Raise3", "decentralized crowdfunding3", 2 ether, block.timestamp, true,5, true
+            "Stage Raise 6", "decentralized crowdfunding 6", 2 ether, block.timestamp, true,5, true
         );
    }
 
@@ -65,10 +73,36 @@ contract StageRaiseTest is Test{
     vm.expectRevert(StageRaise__TargetAmountMustBeGreaterThanZero.selector);
 
      stageRaise.createProject(
-            "Stage Raise3", "decentralized crowdfunding3", 0, block.timestamp+200, true,5, true
+            "Stage Raise 7", "decentralized crowdfunding 7", 0, block.timestamp+200, true,5, true
         );
    }
 
 
+   function testFundProjectWithZero() external {
+    vm.expectRevert(StageRaise__AmountToFundMustBeGreaterThanZero.selector);
+    stageRaise.fundProject{value:0}(1);
+   }
+
+   function testFundingNonExistingProject() external {
+    vm.expectRevert(StageRaise__ProjectNotFound.selector);
+    stageRaise.fundProject{value:2 ether}(100);
+
+   }
+
+   function testFundingNonActiveProject() external {
+    vm.expectRevert(StageRaise__ProjectNotActive.selector);
+    stageRaise.fundProject{value: 1 ether}(4);
+   }
+
+
+   function testFundingProjectWithAmountGreaterThanTarget() external{
+    vm.expectRevert(StageRaise__TotalRaiseCantSurpassTargetRaise.selector);
+
+    stageRaise.fundProject{
+        value:100 ether
+    }(1);
+
+
+   }
 
 }
