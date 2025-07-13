@@ -14,3 +14,54 @@ states/
 .env
 .env.local
 
+# Foundry build artifacts
+out/
+cache/
+broadcast/
+*.cache
+
+# Coverage reports
+coverage.txt
+lcov.info
+
+# Gas snapshots
+.gas-snapshot
+
+# Environment files
+.env*
+!.env.example
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Dependency directories
+node_modules/
+
+# Build artifacts
+*.tar.gz
+*.zip
+
+# Temporary files
+*.tmp
+*.temp
+
+# Local state
+.forge-cache/
+

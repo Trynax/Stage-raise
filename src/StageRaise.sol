@@ -54,14 +54,13 @@ contract  StageRaise {
     }
 
     //State Variables
-    Project[] public s_projects;
     mapping(uint256 => Project) public projectById;
     uint256  private s_projectCount;
 
 
     //Events 
 
-    event ProjectCreated (string indexed name, uint256 indexed targetAmount, uint256 deadline);
+    event ProjectCreated (string indexed name, uint256 indexed targetAmount, uint256 indexed deadline);
     event ProjectFunded (string indexed name, uint256 indexed AmoutFunded, address indexed Funder);
 
 
@@ -93,6 +92,8 @@ contract  StageRaise {
         newProject.totalContributors=0;
         newProject.milestoneCount=_milestoneCount;
         newProject.milestoneBased = _milestoneBased;
+
+        emit ProjectCreated(_name, _targetAmount, _deadline);
     } 
 
 
@@ -116,6 +117,8 @@ contract  StageRaise {
         project.contributors.push(msg.sender);
         project.totalContributors = project.contributors.length;
         project.contibutorsToAmountFunded[msg.sender] += msg.value;
+
+        emit ProjectFunded( project.name, msg.value, msg.sender);
     }
 
 

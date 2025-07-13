@@ -12,9 +12,15 @@ error StageRaise__ProjectNotActive();
 error StageRaise__ProjectNotFound();
 error StageRaise__TotalRaiseCantSurpassTargetRaise();
 contract StageRaiseTest is Test{
+    event ProjectCreated (string indexed name, uint256 indexed targetAmount, uint256 indexed deadline);
+    event ProjectFunded (string indexed name, uint256 indexed AmoutFunded, address indexed Funder);
     StageRaise stageRaise;
+    address TRYNAX = makeAddr("TRYNAX");
+
     function setUp() public {
         stageRaise = new StageRaise();
+            
+        vm.deal(TRYNAX, 10 ether);
          stageRaise.createProject(
             "Stage Raise", "decentralized crowdfunding", 2 ether, block.timestamp +20000, true,5, true
         );
@@ -102,7 +108,32 @@ contract StageRaiseTest is Test{
         value:100 ether
     }(1);
 
-
    }
+
+
+   // Testing Events 
+
+   function testProjectCreatedEvents() external{
+
+    vm.warp(2000);
+    uint256 deadline = 4000;
+
+    vm.expectEmit(true, true, true, false);
+    emit ProjectCreated("Credula", 10 ether, deadline);
+        stageRaise.createProject(
+            "Credula", "decentralized crowdfunding", 10 ether, deadline, true,5, true
+        );
+   }
+
+   function testProjectFundedEvents() external{
+    
+    vm.expectEmit(true, true, true, false);
+    emit ProjectFunded("Stage Raise", 1 ether,address(TRYNAX) );
+
+    vm.prank(TRYNAX);
+    stageRaise.fundProject{value: 1 ether}(1);
+   }
+
+
 
 }
