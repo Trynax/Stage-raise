@@ -56,6 +56,7 @@ contract StageRaiseTest is Test{
         (,,,,uint256 raisedAmount,,,,,)=stageRaise.getProjectBasicInfo(1);
 
         assert(raisedAmount == 1 ether);
+        assert(address(stageRaise).balance == 1 ether);
     }
 
 
