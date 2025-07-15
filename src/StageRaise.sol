@@ -8,7 +8,6 @@
 // Events
 // Modifiers
 // Functions
-
 // Layout of Functions:
 // constructor
 // receive function (if exists)
@@ -71,6 +70,7 @@ contract StageRaise {
         uint256 timeForTheVotingProcessToElapsed;
         mapping(address => uint256) contributorsToAmountFunded;
         mapping(address => bool) hasFunderVoted;
+        address[] voters;
 
     }
  
@@ -85,6 +85,7 @@ contract StageRaise {
         uint256 totalContributors;
         uint256 milestoneCount;
         bool milestoneBased; 
+
     }
 
     //State Variables
@@ -230,9 +231,9 @@ contract StageRaise {
         if (project.votesForYes > project.votesForNo){
             project.milestoneStage++;
         }
-
         project.votesForNo=0;
         project.votesForYes=0;
+        resetVotersMapping(_projectId);
         project.openForMilestoneVotingStage = false;
     }
 
@@ -277,7 +278,7 @@ contract StageRaise {
         if (!project.openForMilestoneVotingStage){
             revert StageRaise__ProjectIsNotOpenForMilestoneVotingProcess(); 
         }
-        if (block.timestamp > (project.timeForMilestoneVotingProcess + project.timeForTheVotingProcessToElapsed)){
+        if (block.timestamp > project.timeForMilestoneVotingProcess){
             revert StageRaise__VotingPeriodHasPassed(); 
         }
         if(_vote == true){
@@ -285,8 +286,19 @@ contract StageRaise {
         }else {
             project.votesForNo +=_calculateFunderVotingPower(msg.sender, _projectId);
         }
+        project.voters.push(msg.sender);
         project.hasFunderVoted[msg.sender] = true;
 
+    }
+
+    function resetVotersMapping(uint256 _projectId) private {
+        Project storage project = projectById[_projectId];
+
+        for(uint256 i =0; i<project.voters.length; i++){
+            project.hasFunderVoted[project.voters[i]]=false;
+        }
+
+        delete project.voters;
     }
     // view & pure functions
 
@@ -314,7 +326,6 @@ contract StageRaise {
 
  
     function getAmountWithdrawableForAProject(uint256 _projectId) public view returns(uint256){
-
         Project storage project = projectById[_projectId];
         if(project.owner == address(0)){
             return 0;
