@@ -25,12 +25,13 @@ pragma solidity ^0.8.20;
 error StageRaise__DeadlineMustBeInFuture();
 error StageRaise__TargetAmountMustBeGreaterThanZero();
 error StageRaise__AmountToFundMustBeGreaterThanZero();
-error StageRaise__AmountToWithdrawMustBeGreaterThanZero();
 error StageRaise__ProjectNotActive();
 error StageRaise__ProjectNotFound();
 error StageRaise__TotalRaiseCantSurpassTargetRaise();
+error StageRaise__DeadlineForFundingHasPassed();
 error StageRaise__FundsCanOnlyBeWithdrawByProjectOwner();
 error StageRaise__ETHTransferFailed();
+error StageRaise__AmountToWithdrawMustBeGreaterThanZero();
 error StageRaise__YouCannotWithdrawFromActiveProject();
 error StageRaise__YouCannotWithdrawMoreThanTheProjectBalance();
 error StageRaise__YouCannotHaveZeroMilestoneForAMileStoneProject();
@@ -198,7 +199,7 @@ contract StageRaise {
             revert StageRaise__TotalRaiseCantSurpassTargetRaise();
         }
         if (block.timestamp > projectById[_projectId].deadline) {
-            revert StageRaise__DeadlineMustBeInFuture();
+            revert StageRaise__DeadlineForFundingHasPassed();
         }
         Project storage project = projectById[_projectId];
         if (project.contributorsToAmountFunded[msg.sender] == 0) {
@@ -220,7 +221,7 @@ contract StageRaise {
     function openProjectForMilestoneVotes(uint256 _projectId) external onlyProjectOwner(_projectId){
         Project storage project = projectById[_projectId];
 
-        if(project.milestoneStage ==project.milestoneStage ){
+        if(project.milestoneStage >=project.milestoneCount ){
             revert StageRaise__ProjectHasReachedTheFinalMileStoneStage(); 
         }
         project.openForMilestoneVotingStage = true;
@@ -231,6 +232,9 @@ contract StageRaise {
         Project storage project = projectById[_projectId];
         if(!(block.timestamp >= project.timeForTheVotingProcessToElapsed)){
             revert StageRaise__TimeHasNotPassedForTheVotingProcess(); 
+        }
+        if(!project.openForMilestoneVotingStage){
+        revert StageRaise__ProjectIsNotOpenForMilestoneVotingProcess();
         }
 
         if (project.votesForYes > project.votesForNo){
@@ -283,13 +287,13 @@ contract StageRaise {
         if (!project.openForMilestoneVotingStage){
             revert StageRaise__ProjectIsNotOpenForMilestoneVotingProcess(); 
         }
-        if (block.timestamp > project.timeForMilestoneVotingProcess){
+        if (block.timestamp > project.timeForTheVotingProcessToElapsed){
             revert StageRaise__VotingPeriodHasPassed(); 
         }
         if(_vote == true){
-            project.votesForYes += _calculateFunderVotingPower(msg.sender, _projectId);
+            project.votesForYes += calculateFunderVotingPower(msg.sender, _projectId);
         }else {
-            project.votesForNo +=_calculateFunderVotingPower(msg.sender, _projectId);
+            project.votesForNo +=calculateFunderVotingPower(msg.sender, _projectId);
         }
         project.voters.push(msg.sender);
         project.hasFunderVoted[msg.sender] = true;
@@ -346,7 +350,7 @@ contract StageRaise {
     }
 
 
-    function _calculateFunderVotingPower(address _funder, uint256 _projectId) public view returns(uint256 votingPower){
+    function calculateFunderVotingPower(address _funder, uint256 _projectId) public view returns(uint256 votingPower){
         Project storage project = projectById[_projectId];
 
         if (project.owner==address(0)){
