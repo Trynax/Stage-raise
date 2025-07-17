@@ -42,6 +42,7 @@ error StageRaise__VotingProcessFormilestoneMustBeInFuture();
 error StageRaise__FunderHasAlreadyVoted();
 error StageRaise__TimeHasNotPassedForTheVotingProcess(); 
 error StageRaise__VotingPeriodHasPassed(); 
+error StageRaise__ProjectHasReachedTheFinalMileStoneStage(); 
 
 
 contract StageRaise {
@@ -71,7 +72,6 @@ contract StageRaise {
         mapping(address => uint256) contributorsToAmountFunded;
         mapping(address => bool) hasFunderVoted;
         address[] voters;
-
     }
  
     struct ProjectInfo { 
@@ -176,6 +176,7 @@ contract StageRaise {
         newProject.amountWithdrawn=0;
         newProject.milestoneCount = _milestoneCount;
         newProject.milestoneBased = _milestoneBased;
+        newProject.timeForMilestoneVotingProcess= _timeForMileStoneVotingProcess;
 
         emit ProjectCreated(_name, _targetAmount, _deadline);
     }
@@ -218,6 +219,10 @@ contract StageRaise {
 
     function openProjectForMilestoneVotes(uint256 _projectId) external onlyProjectOwner(_projectId){
         Project storage project = projectById[_projectId];
+
+        if(project.milestoneStage ==project.milestoneStage ){
+            revert StageRaise__ProjectHasReachedTheFinalMileStoneStage(); 
+        }
         project.openForMilestoneVotingStage = true;
         project.timeForTheVotingProcessToElapsed = project.timeForMilestoneVotingProcess + block.timestamp;
     }
