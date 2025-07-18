@@ -20,12 +20,17 @@ cache/
 broadcast/
 *.cache
 
-# Coverage reports
+# Foundry coverage and test artifacts
+coverage/
 coverage.txt
 lcov.info
+.coverage_artifacts/
+coverage_artifacts/
 
 # Gas snapshots
 .gas-snapshot
+gas-snapshot
+.gas-snapshot.json
 
 # Environment files
 .env*
@@ -64,4 +69,10 @@ node_modules/
 
 # Local state
 .forge-cache/
+.foundry/
+
+# Foundry specific
+remappings.txt
+*.s.sol.d
+*.t.sol.d
 

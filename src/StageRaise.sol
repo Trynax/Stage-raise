@@ -54,7 +54,7 @@ contract StageRaise {
 
     //Types
 
-    struct Project {
+    struct ProjectBasics {
         address owner;
         uint256 projectId;
         string name;
@@ -64,16 +64,24 @@ contract StageRaise {
         uint256 deadline;
         bool isActive;
         uint256 totalContributors;
+    }
+
+    struct ProjectMilestone {
         uint256 milestoneCount;
         bool milestoneBased;
-        uint256 projectBalance;
-        uint256 amountWithdrawn;
         uint256 milestoneStage;
         bool openForMilestoneVotingStage;
         uint256 votesForYes;
         uint256 votesForNo;
         uint256 timeForMilestoneVotingProcess;
         uint256 timeForTheVotingProcessToElapsed;
+    }
+
+    struct Project {
+        ProjectBasics basics;
+        ProjectMilestone milestone;
+        uint256 projectBalance;
+        uint256 amountWithdrawn;
         mapping(address => uint256) contributorsToAmountFunded;
         mapping(address => bool) hasFunderVoted;
         address[] voters;
@@ -128,7 +136,7 @@ contract StageRaise {
 
     modifier onlyProjectOwner (uint256 _projectId){
 
-        if(projectById[_projectId].owner != msg.sender){
+        if(projectById[_projectId].basics.owner != msg.sender){
             revert StageRaise__CanOnlyBeCalledByProjectOwner();
         }
         _;
@@ -164,24 +172,28 @@ contract StageRaise {
 
         Project storage newProject = projectById[s_projectCount];
 
-        newProject.name = params.name;
-        newProject.owner = msg.sender;
-        newProject.projectId = s_projectCount;
-        newProject.description = params.description;
-        newProject.targetAmount = params.targetAmount;
-        newProject.raisedAmount = 0;
-        newProject.projectBalance=0;
+        // Set basic project info
+        newProject.basics.name = params.name;
+        newProject.basics.owner = msg.sender;
+        newProject.basics.projectId = s_projectCount;
+        newProject.basics.description = params.description;
+        newProject.basics.targetAmount = params.targetAmount;
+        newProject.basics.raisedAmount = 0;
+        newProject.basics.deadline = params.deadline;
+        newProject.basics.isActive = true;
+        newProject.basics.totalContributors = 0;
 
-        newProject.deadline = params.deadline;
-        newProject.isActive = true;
-        newProject.totalContributors = 0;
+        // Set milestone info
+        newProject.milestone.milestoneCount = params.milestoneCount;
+        newProject.milestone.milestoneBased = params.milestoneBased;
+        newProject.milestone.timeForMilestoneVotingProcess = params.timeForMileStoneVotingProcess;
         if (params.milestoneBased == true){
-             newProject.milestoneStage=1;
+             newProject.milestone.milestoneStage = 1;
         }
-        newProject.amountWithdrawn=0;
-        newProject.milestoneCount = params.milestoneCount;
-        newProject.milestoneBased = params.milestoneBased;
-        newProject.timeForMilestoneVotingProcess= params.timeForMileStoneVotingProcess;
+
+        // Set financial info
+        newProject.projectBalance = 0;
+        newProject.amountWithdrawn = 0;
 
         emit ProjectCreated(params.name, params.targetAmount, params.deadline);
     }
@@ -190,31 +202,31 @@ contract StageRaise {
         if (msg.value <= 0) {
             revert StageRaise__AmountToFundMustBeGreaterThanZero();
         }
-        if (projectById[_projectId].owner == address(0)) {
+        if (projectById[_projectId].basics.owner == address(0)) {
             revert StageRaise__ProjectNotFound();
         }
-        if (!projectById[_projectId].isActive) {
+        if (!projectById[_projectId].basics.isActive) {
             revert StageRaise__ProjectNotActive();
         }
         if (
-            msg.value + projectById[_projectId].raisedAmount >
-            projectById[_projectId].targetAmount
+            msg.value + projectById[_projectId].basics.raisedAmount >
+            projectById[_projectId].basics.targetAmount
         ) {
             revert StageRaise__TotalRaiseCantSurpassTargetRaise();
         }
-        if (block.timestamp > projectById[_projectId].deadline) {
-            projectById[_projectId].isActive=false;
+        if (block.timestamp > projectById[_projectId].basics.deadline) {
+            projectById[_projectId].basics.isActive=false;
             revert StageRaise__DeadlineForFundingHasPassed();
         }
         Project storage project = projectById[_projectId];
         if (project.contributorsToAmountFunded[msg.sender] == 0) {
-            project.totalContributors++;
+            project.basics.totalContributors++;
         }
-        project.raisedAmount += msg.value;
+        project.basics.raisedAmount += msg.value;
         project.projectBalance +=msg.value;
         project.contributorsToAmountFunded[msg.sender] += msg.value;
 
-        emit ProjectFunded(project.name, msg.value, msg.sender);
+        emit ProjectFunded(project.basics.name, msg.value, msg.sender);
     }
 
 
@@ -222,41 +234,41 @@ contract StageRaise {
         Project storage project = projectById[_projectId];
 
 
-        if(!project.milestoneBased){
+        if(!project.milestone.milestoneBased){
             revert StageRaise__YouCannotOpenNonMilestoneProjectForVoting(); 
         }
 
-        if(project.milestoneStage >=project.milestoneCount ){
+        if(project.milestone.milestoneStage >= project.milestone.milestoneCount ){
             revert StageRaise__ProjectHasReachedTheFinalMileStoneStage(); 
         }
-        if(project.deadline >= block.timestamp){
+        if(project.basics.deadline >= block.timestamp){
             revert  StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing();
         }
-        project.openForMilestoneVotingStage = true;
-        project.timeForTheVotingProcessToElapsed = project.timeForMilestoneVotingProcess + block.timestamp;
+        project.milestone.openForMilestoneVotingStage = true;
+        project.milestone.timeForTheVotingProcessToElapsed = project.milestone.timeForMilestoneVotingProcess + block.timestamp;
     }
 
     function finalizeVotingProcess(uint256 _projectId) external{ 
         Project storage project = projectById[_projectId];
-        if(!(block.timestamp >= project.timeForTheVotingProcessToElapsed)){
+        if(!(block.timestamp >= project.milestone.timeForTheVotingProcessToElapsed)){
             revert StageRaise__TimeHasNotPassedForTheVotingProcess(); 
         }
-        if(!project.openForMilestoneVotingStage){
+        if(!project.milestone.openForMilestoneVotingStage){
         revert StageRaise__ProjectIsNotOpenForMilestoneVotingProcess();
         }
 
-        if (project.votesForYes > project.votesForNo){
-            project.milestoneStage++;
+        if (project.milestone.votesForYes > project.milestone.votesForNo){
+            project.milestone.milestoneStage++;
         }
-        project.votesForNo=0;
-        project.votesForYes=0;
+        project.milestone.votesForNo=0;
+        project.milestone.votesForYes=0;
         resetVotersMapping(_projectId);
-        project.openForMilestoneVotingStage = false;
+        project.milestone.openForMilestoneVotingStage = false;
     }
 
 
     function withdrawFunds(uint256 _amount, uint256 _projectId, address payable _to) external  onlyProjectOwner(_projectId){
-        if (projectById[_projectId].owner == address(0)){
+        if (projectById[_projectId].basics.owner == address(0)){
             revert StageRaise__ProjectNotFound();
         }
         if (_amount <= 0 ){
@@ -269,7 +281,7 @@ contract StageRaise {
             revert StageRaise__YouCannotWithdrawMoreThanWithdrawableBalance();
         }
 
-        if (block.timestamp <= projectById[_projectId].deadline ){
+        if (block.timestamp <= projectById[_projectId].basics.deadline ){
             revert StageRaise__CannotWithdrawWhileFundingIsActive();
         }
 
@@ -281,7 +293,7 @@ contract StageRaise {
             revert StageRaise__ETHTransferFailed();
         }
 
-        emit WithDrawnFromProject(projectById[_projectId].name, _amount, msg.sender);
+        emit WithDrawnFromProject(projectById[_projectId].basics.name, _amount, msg.sender);
     }
 
     function takeAVoteForMilestoneStageIncrease(uint256 _projectId, bool _vote) external onlyProjectFunder(_projectId) {
@@ -293,16 +305,16 @@ contract StageRaise {
             revert StageRaise__FunderHasAlreadyVoted();
         }
 
-        if (!project.openForMilestoneVotingStage){
+        if (!project.milestone.openForMilestoneVotingStage){
             revert StageRaise__ProjectIsNotOpenForMilestoneVotingProcess(); 
         }
-        if (block.timestamp > project.timeForTheVotingProcessToElapsed){
+        if (block.timestamp > project.milestone.timeForTheVotingProcessToElapsed){
             revert StageRaise__VotingPeriodHasPassed(); 
         }
         if(_vote == true){
-            project.votesForYes += calculateFunderVotingPower(msg.sender, _projectId);
+            project.milestone.votesForYes += calculateFunderVotingPower(msg.sender, _projectId);
         }else {
-            project.votesForNo +=calculateFunderVotingPower(msg.sender, _projectId);
+            project.milestone.votesForNo +=calculateFunderVotingPower(msg.sender, _projectId);
         }
         project.voters.push(msg.sender);
         project.hasFunderVoted[msg.sender] = true;
@@ -326,16 +338,16 @@ contract StageRaise {
 
         return 
             ProjectInfo({
-            owner:p.owner,
-            name:p.name,
-            description:p.description,
-            targetAmount:p.targetAmount,
-            raisedAmount:p.raisedAmount,
-            deadline:p.deadline,
-            isActive:p.isActive,
-            totalContributors:p.totalContributors,
-            milestoneCount:p.milestoneCount,
-            milestoneBased:p.milestoneBased
+            owner:p.basics.owner,
+            name:p.basics.name,
+            description:p.basics.description,
+            targetAmount:p.basics.targetAmount,
+            raisedAmount:p.basics.raisedAmount,
+            deadline:p.basics.deadline,
+            isActive:p.basics.isActive,
+            totalContributors:p.basics.totalContributors,
+            milestoneCount:p.milestone.milestoneCount,
+            milestoneBased:p.milestone.milestoneBased
         
             });
 
@@ -345,15 +357,15 @@ contract StageRaise {
  
     function getAmountWithdrawableForAProject(uint256 _projectId) public view returns(uint256){
         Project storage project = projectById[_projectId];
-        if(project.owner == address(0)){
+        if(project.basics.owner == address(0)){
             return 0;
         }
 
-        if(!project.milestoneBased){
+        if(!project.milestone.milestoneBased){
             return project.projectBalance;
         }
 
-        uint256 maxWithdrawable = (project.raisedAmount * project.milestoneStage)/ project.milestoneCount;
+        uint256 maxWithdrawable = (project.basics.raisedAmount * project.milestone.milestoneStage)/ project.milestone.milestoneCount;
         uint256 maxWithdrawableNow= maxWithdrawable-project.amountWithdrawn;
         return maxWithdrawableNow;
     }
@@ -362,7 +374,7 @@ contract StageRaise {
     function calculateFunderVotingPower(address _funder, uint256 _projectId) public view returns(uint256 votingPower){
         Project storage project = projectById[_projectId];
 
-        if (project.owner==address(0)){
+        if (project.basics.owner==address(0)){
             revert StageRaise__ProjectNotFound();
         }
         if(project.contributorsToAmountFunded[_funder]==0){
@@ -372,7 +384,7 @@ contract StageRaise {
 
         uint256 amountFundedByTheFunder = project.contributorsToAmountFunded[_funder];
 
-        votingPower = (amountFundedByTheFunder*100)/project.raisedAmount;
+        votingPower = (amountFundedByTheFunder*100)/project.basics.raisedAmount;
 
         return votingPower; 
 
@@ -390,18 +402,18 @@ contract StageRaise {
     }
 
     function getProjectMilestoneStage(uint256 _projectId) public view returns (uint256) {
-    return projectById[_projectId].milestoneStage;
+    return projectById[_projectId].milestone.milestoneStage;
     }
 
     function getProjectMileStoneVotingStatus(uint256 _projectId) public view returns(bool){
-        return projectById[_projectId].openForMilestoneVotingStage;
+        return projectById[_projectId].milestone.openForMilestoneVotingStage;
     }
 
     function getProjectYesVotes(uint256 _projectId) public view returns(uint256){
-        return projectById[_projectId].votesForYes;
+        return projectById[_projectId].milestone.votesForYes;
     }
     function getProjectNoVotes(uint256 _projectId) public view returns(uint256){
-        return projectById[_projectId].votesForNo;
+        return projectById[_projectId].milestone.votesForNo;
     }
 
 }
