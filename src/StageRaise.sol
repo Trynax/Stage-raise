@@ -90,7 +90,16 @@ contract StageRaise {
         uint256 totalContributors;
         uint256 milestoneCount;
         bool milestoneBased; 
+    }
 
+    struct CreateProjectParams {
+        string name;
+        string description;
+        uint256 targetAmount;
+        uint256 deadline;
+        uint256 milestoneCount;
+        bool milestoneBased;
+        uint256 timeForMileStoneVotingProcess;
     }
 
     //State Variables
@@ -135,27 +144,19 @@ contract StageRaise {
 
     //Functions
 
-    function createProject(
-        string memory _name,
-        string memory _description,
-        uint256 _targetAmount,
-        uint256 _deadline,
-        uint256 _milestoneCount,
-        bool _milestoneBased,
-        uint256 _timeForMileStoneVotingProcess
-    ) external {
-        if (block.timestamp >= _deadline) {
+    function createProject(CreateProjectParams memory params) external {
+        if (block.timestamp >= params.deadline) {
             revert StageRaise__DeadlineMustBeInFuture();
         }
-        if (_targetAmount <= 0) {
+        if (params.targetAmount <= 0) {
             revert StageRaise__TargetAmountMustBeGreaterThanZero();
         }
 
-        if (_milestoneBased != false && _milestoneCount <=0){
+        if (params.milestoneBased != false && params.milestoneCount <=0){
             revert StageRaise__YouCannotHaveZeroMilestoneForAMileStoneProject();
         }
 
-        if(_timeForMileStoneVotingProcess <= 0){
+        if(params.timeForMileStoneVotingProcess <= 0){
             revert StageRaise__VotingProcessFormilestoneMustBeInFuture(); 
         }
 
@@ -163,26 +164,26 @@ contract StageRaise {
 
         Project storage newProject = projectById[s_projectCount];
 
-        newProject.name = _name;
+        newProject.name = params.name;
         newProject.owner = msg.sender;
         newProject.projectId = s_projectCount;
-        newProject.description = _description;
-        newProject.targetAmount = _targetAmount;
+        newProject.description = params.description;
+        newProject.targetAmount = params.targetAmount;
         newProject.raisedAmount = 0;
         newProject.projectBalance=0;
 
-        newProject.deadline = _deadline;
+        newProject.deadline = params.deadline;
         newProject.isActive = true;
         newProject.totalContributors = 0;
-        if (_milestoneBased == true){
+        if (params.milestoneBased == true){
              newProject.milestoneStage=1;
         }
         newProject.amountWithdrawn=0;
-        newProject.milestoneCount = _milestoneCount;
-        newProject.milestoneBased = _milestoneBased;
-        newProject.timeForMilestoneVotingProcess= _timeForMileStoneVotingProcess;
+        newProject.milestoneCount = params.milestoneCount;
+        newProject.milestoneBased = params.milestoneBased;
+        newProject.timeForMilestoneVotingProcess= params.timeForMileStoneVotingProcess;
 
-        emit ProjectCreated(_name, _targetAmount, _deadline);
+        emit ProjectCreated(params.name, params.targetAmount, params.deadline);
     }
 
     function fundProject(uint256 _projectId) external payable {

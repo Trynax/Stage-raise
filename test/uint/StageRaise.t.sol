@@ -40,20 +40,60 @@ contract StageRaiseTest is Test{
             
         vm.deal(TRYNAX, 10 ether);
          stageRaise.createProject(
-            "Stage Raise", "decentralized crowdfunding", 2 ether, block.timestamp +20000,5, true,200
+            StageRaise.CreateProjectParams({
+                name: "Stage Raise",
+                description: "decentralized crowdfunding",
+                targetAmount: 2 ether,
+                deadline: block.timestamp +20000,
+                milestoneCount: 5,
+                milestoneBased: true,
+                timeForMileStoneVotingProcess: 200
+            })
         );
          stageRaise.createProject(
-            "Stage Raise 2", "decentralized crowdfunding 2", 3 ether, block.timestamp +30000,5, true,200
+            StageRaise.CreateProjectParams({
+                name: "Stage Raise 2",
+                description: "decentralized crowdfunding 2",
+                targetAmount: 3 ether,
+                deadline: block.timestamp +30000,
+                milestoneCount: 5,
+                milestoneBased: true,
+                timeForMileStoneVotingProcess: 200
+            })
         );
         stageRaise.createProject(
-            "Stage Raise 3", "decentralized crowdfunding 3", 2 ether, block.timestamp +20000,5, true,200
+            StageRaise.CreateProjectParams({
+                name: "Stage Raise 3",
+                description: "decentralized crowdfunding 3",
+                targetAmount: 2 ether,
+                deadline: block.timestamp +20000,
+                milestoneCount: 5,
+                milestoneBased: true,
+                timeForMileStoneVotingProcess: 200
+            })
         );
        
         stageRaise.createProject(
-            "Stage Raise 4", "decentralized crowdfunding 4", 3 ether, block.timestamp +30000,5, true,200
+            StageRaise.CreateProjectParams({
+                name: "Stage Raise 4",
+                description: "decentralized crowdfunding 4",
+                targetAmount: 3 ether,
+                deadline: block.timestamp +30000,
+                milestoneCount: 5,
+                milestoneBased: true,
+                timeForMileStoneVotingProcess: 200
+            })
         );
         stageRaise.createProject(
-            "Stage Raise 5", "decentralized crowdfunding 5", 3 ether, block.timestamp +30000,5, true,200
+            StageRaise.CreateProjectParams({
+                name: "Stage Raise 5",
+                description: "decentralized crowdfunding 5",
+                targetAmount: 3 ether,
+                deadline: block.timestamp +30000,
+                milestoneCount: 5,
+                milestoneBased: true,
+                timeForMileStoneVotingProcess: 200
+            })
         );
 
     }   
@@ -80,7 +120,15 @@ contract StageRaiseTest is Test{
     function testWithdrawFunds() external {
         vm.startPrank(TRYNAX);
          stageRaise.createProject(
-            "Stage Raise 6", "decentralized crowdfunding 6", 2 ether, block.timestamp +20000,5, false,200
+            StageRaise.CreateProjectParams({
+                name: "Stage Raise 6",
+                description: "decentralized crowdfunding 6",
+                targetAmount: 2 ether,
+                deadline: block.timestamp +20000,
+                milestoneCount: 5,
+                milestoneBased: false,
+                timeForMileStoneVotingProcess: 200
+            })
         );
         stageRaise.fundProject{value:1 ether}(6);
          vm.warp(block.timestamp+2000000);
@@ -129,8 +177,8 @@ contract StageRaiseTest is Test{
         vm.stopPrank();
         vm.warp(block.timestamp+20000);
         stageRaise.finalizeVotingProcess(1);
-
         assert(stageRaise.getProjectMilestoneStage(1)==2);
+        assert(stageRaise.getProjectMileStoneVotingStatus(1)==false);
     }
 
 
@@ -146,7 +194,15 @@ contract StageRaiseTest is Test{
     function testCreatingProjectDeadlineMustBeInFuture() external{
         vm.expectRevert(StageRaise__DeadlineMustBeInFuture.selector);
         stageRaise.createProject(
-            "Stage Raise 6", "decentralized crowdfunding 6", 2 ether, block.timestamp,5, true,200
+            StageRaise.CreateProjectParams({
+                name: "Stage Raise 6",
+                description: "decentralized crowdfunding 6",
+                targetAmount: 2 ether,
+                deadline: block.timestamp,
+                milestoneCount: 5,
+                milestoneBased: true,
+                timeForMileStoneVotingProcess: 200
+            })
         );
    }
 
@@ -154,8 +210,16 @@ contract StageRaiseTest is Test{
     vm.expectRevert(StageRaise__TargetAmountMustBeGreaterThanZero.selector);
 
      stageRaise.createProject(
-            "Stage Raise 7", "decentralized crowdfunding 7", 0, block.timestamp+200,5, true,200
-        );
+        StageRaise.CreateProjectParams({
+            name: "Stage Raise 7",
+            description: "decentralized crowdfunding 7",
+            targetAmount: 0,
+            deadline: block.timestamp+200,
+            milestoneCount: 5,
+            milestoneBased: true,
+            timeForMileStoneVotingProcess: 200
+        })
+     );
    }
 
 
@@ -198,7 +262,15 @@ contract StageRaiseTest is Test{
     vm.expectEmit(true, true, true, false);
     emit ProjectCreated("Credula", 10 ether, deadline);
         stageRaise.createProject(
-            "Credula", "decentralized crowdfunding", 10 ether, deadline,5, true,200
+            StageRaise.CreateProjectParams({
+                name: "Credula",
+                description: "decentralized crowdfunding",
+                targetAmount: 10 ether,
+                deadline: deadline,
+                milestoneCount: 5,
+                milestoneBased: true,
+                timeForMileStoneVotingProcess: 200
+            })
         );
    }
 
