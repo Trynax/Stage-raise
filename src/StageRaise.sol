@@ -43,7 +43,11 @@ error StageRaise__VotingProcessFormilestoneMustBeInFuture();
 error StageRaise__FunderHasAlreadyVoted();
 error StageRaise__TimeHasNotPassedForTheVotingProcess(); 
 error StageRaise__VotingPeriodHasPassed(); 
+error StageRaise__CannotWithdrawWhileFundingIsActive();
 error StageRaise__ProjectHasReachedTheFinalMileStoneStage(); 
+error StageRaise__YoucannotWWithdrawWhileFundingIsStillOn();
+error StageRaise__YouCannotOpenNonMilestoneProjectForVoting();
+error StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing();
 
 
 contract StageRaise {
@@ -136,7 +140,6 @@ contract StageRaise {
         string memory _description,
         uint256 _targetAmount,
         uint256 _deadline,
-        bool _isActive,
         uint256 _milestoneCount,
         bool _milestoneBased,
         uint256 _timeForMileStoneVotingProcess
@@ -169,7 +172,7 @@ contract StageRaise {
         newProject.projectBalance=0;
 
         newProject.deadline = _deadline;
-        newProject.isActive = _isActive;
+        newProject.isActive = true;
         newProject.totalContributors = 0;
         if (_milestoneBased == true){
              newProject.milestoneStage=1;
@@ -199,6 +202,7 @@ contract StageRaise {
             revert StageRaise__TotalRaiseCantSurpassTargetRaise();
         }
         if (block.timestamp > projectById[_projectId].deadline) {
+            projectById[_projectId].isActive=false;
             revert StageRaise__DeadlineForFundingHasPassed();
         }
         Project storage project = projectById[_projectId];
@@ -212,17 +216,20 @@ contract StageRaise {
         emit ProjectFunded(project.name, msg.value, msg.sender);
     }
 
-    function pauseOrContinueProjectFunding(uint256 _projectId) external onlyProjectOwner(_projectId) {
-        Project storage project = projectById[_projectId];
-        project.isActive = !project.isActive;
-    }
-
 
     function openProjectForMilestoneVotes(uint256 _projectId) external onlyProjectOwner(_projectId){
         Project storage project = projectById[_projectId];
 
+
+        if(!project.milestoneBased){
+            revert StageRaise__YouCannotOpenNonMilestoneProjectForVoting(); 
+        }
+
         if(project.milestoneStage >=project.milestoneCount ){
             revert StageRaise__ProjectHasReachedTheFinalMileStoneStage(); 
+        }
+        if(project.deadline >= block.timestamp){
+            revert  StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing();
         }
         project.openForMilestoneVotingStage = true;
         project.timeForTheVotingProcessToElapsed = project.timeForMilestoneVotingProcess + block.timestamp;
@@ -254,14 +261,15 @@ contract StageRaise {
         if (_amount <= 0 ){
             revert StageRaise__AmountToWithdrawMustBeGreaterThanZero();
         }
-        if(projectById[_projectId].isActive){
-            revert StageRaise__YouCannotWithdrawFromActiveProject();
-        }
         if(projectById[_projectId].projectBalance < _amount){
             revert StageRaise__YouCannotWithdrawMoreThanTheProjectBalance();
         }
         if(_amount > getAmountWithdrawableForAProject(_projectId)){
             revert StageRaise__YouCannotWithdrawMoreThanWithdrawableBalance();
+        }
+
+        if (block.timestamp <= projectById[_projectId].deadline ){
+            revert StageRaise__CannotWithdrawWhileFundingIsActive();
         }
 
         projectById[_projectId].projectBalance -= _amount;
@@ -372,6 +380,24 @@ contract StageRaise {
     function getProjectCount() public view returns (uint256) {
         return s_projectCount;
     }
+    function getProjectBalance(uint256 _projectId) public view returns (uint256) {
+    return projectById[_projectId].projectBalance;
+    }
 
+    function getProjectAmountWithdrawn(uint256 _projectId) public view returns (uint256) {
+    return projectById[_projectId].amountWithdrawn;
+    }
+
+    function getProjectMilestoneStage(uint256 _projectId) public view returns (uint256) {
+    return projectById[_projectId].milestoneStage;
+    }
+
+    function getProjectMileStoneVotingStatus(uint256 _projectId) public view returns(bool){
+        return projectById[_projectId].openForMilestoneVotingStage;
+    }
+
+    function getProjectYesVotes(uint256 _projectId) public view returns(uint256){
+        return projectById[_projectId].votesForYes;
+    }
 
 }

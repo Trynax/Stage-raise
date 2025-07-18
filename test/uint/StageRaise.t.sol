@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {StageRaise } from "../../src/StageRaise.sol";
+import {console} from "forge-std/console.sol";
 
 error StageRaise__DeadlineMustBeInFuture();
 error StageRaise__TargetAmountMustBeGreaterThanZero();
@@ -39,20 +40,20 @@ contract StageRaiseTest is Test{
             
         vm.deal(TRYNAX, 10 ether);
          stageRaise.createProject(
-            "Stage Raise", "decentralized crowdfunding", 2 ether, block.timestamp +20000, true,5, true,200
+            "Stage Raise", "decentralized crowdfunding", 2 ether, block.timestamp +20000,5, true,200
         );
          stageRaise.createProject(
-            "Stage Raise 2", "decentralized crowdfunding 2", 3 ether, block.timestamp +30000, true,5, true,200
+            "Stage Raise 2", "decentralized crowdfunding 2", 3 ether, block.timestamp +30000,5, true,200
         );
         stageRaise.createProject(
-            "Stage Raise 3", "decentralized crowdfunding 3", 2 ether, block.timestamp +20000, true,5, true,200
+            "Stage Raise 3", "decentralized crowdfunding 3", 2 ether, block.timestamp +20000,5, true,200
         );
        
         stageRaise.createProject(
-            "Stage Raise 4", "decentralized crowdfunding 4", 3 ether, block.timestamp +30000, false,5, true,200
+            "Stage Raise 4", "decentralized crowdfunding 4", 3 ether, block.timestamp +30000,5, true,200
         );
         stageRaise.createProject(
-            "Stage Raise 5", "decentralized crowdfunding 5", 3 ether, block.timestamp +30000, true,5, true,200
+            "Stage Raise 5", "decentralized crowdfunding 5", 3 ether, block.timestamp +30000,5, true,200
         );
 
     }   
@@ -77,10 +78,44 @@ contract StageRaiseTest is Test{
     }
 
     function testWithdrawFunds() external {
-        vm
-        stageRaise.fundProject{value:1 ether}(1)
+        vm.startPrank(TRYNAX);
+         stageRaise.createProject(
+            "Stage Raise 6", "decentralized crowdfunding 6", 2 ether, block.timestamp +20000,5, false,200
+        );
+        stageRaise.fundProject{value:1 ether}(6);
+         vm.warp(block.timestamp+2000000);
+        stageRaise.withdrawFunds(1 ether,6, payable(TRYNAX));
+        vm.stopPrank();
+
+        assert(stageRaise.getProjectBalance(6)==0);
+      
+       
     }
 
+    function testopeningProjectForVoting() external {
+        vm.warp(block.timestamp+200000);
+        stageRaise.openProjectForMilestoneVotes(1);
+        
+        assert(stageRaise.getProjectMileStoneVotingStatus(1)==true);
+
+    }
+
+
+
+    function testForTakingAVote() external {
+
+        vm.prank(TRYNAX);
+        stageRaise.fundProject{value:1 ether}(1);
+        vm.warp(block.timestamp+2000000);
+        stageRaise.openProjectForMilestoneVotes(1);
+
+        vm.startPrank(TRYNAX);
+        stageRaise.takeAVoteForMilestoneStageIncrease(1,true);
+        vm.stopPrank();
+        assert(stageRaise.getProjectYesVotes(1)==stageRaise.calculateFunderVotingPower(TRYNAX, 1));
+
+
+    }
     // Testing View and Pure Function 
     function testGetProjectCount () external {
 
@@ -93,7 +128,7 @@ contract StageRaiseTest is Test{
     function testCreatingProjectDeadlineMustBeInFuture() external{
         vm.expectRevert(StageRaise__DeadlineMustBeInFuture.selector);
         stageRaise.createProject(
-            "Stage Raise 6", "decentralized crowdfunding 6", 2 ether, block.timestamp, true,5, true,200
+            "Stage Raise 6", "decentralized crowdfunding 6", 2 ether, block.timestamp,5, true,200
         );
    }
 
@@ -101,7 +136,7 @@ contract StageRaiseTest is Test{
     vm.expectRevert(StageRaise__TargetAmountMustBeGreaterThanZero.selector);
 
      stageRaise.createProject(
-            "Stage Raise 7", "decentralized crowdfunding 7", 0, block.timestamp+200, true,5, true,200
+            "Stage Raise 7", "decentralized crowdfunding 7", 0, block.timestamp+200,5, true,200
         );
    }
 
@@ -117,11 +152,7 @@ contract StageRaiseTest is Test{
 
    }
 
-   function testFundingNonActiveProject() external {
-    vm.expectRevert(StageRaise__ProjectNotActive.selector);
-    stageRaise.fundProject{value: 1 ether}(4);
-   }
-
+ 
 
    function testFundingProjectWithAmountGreaterThanTarget() external{
     vm.expectRevert(StageRaise__TotalRaiseCantSurpassTargetRaise.selector);
@@ -149,7 +180,7 @@ contract StageRaiseTest is Test{
     vm.expectEmit(true, true, true, false);
     emit ProjectCreated("Credula", 10 ether, deadline);
         stageRaise.createProject(
-            "Credula", "decentralized crowdfunding", 10 ether, deadline, true,5, true,200
+            "Credula", "decentralized crowdfunding", 10 ether, deadline,5, true,200
         );
    }
 
@@ -160,6 +191,8 @@ contract StageRaiseTest is Test{
 
     vm.prank(TRYNAX);
     stageRaise.fundProject{value: 1 ether}(1);
+
+
    }
 
 
