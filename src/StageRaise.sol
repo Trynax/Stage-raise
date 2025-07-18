@@ -135,6 +135,9 @@ contract StageRaise {
     //Modifier
 
     modifier onlyProjectOwner (uint256 _projectId){
+        if(projectById[_projectId].basics.owner == address(0)){
+            revert StageRaise__ProjectNotFound();
+        }
 
         if(projectById[_projectId].basics.owner != msg.sender){
             revert StageRaise__CanOnlyBeCalledByProjectOwner();
@@ -268,9 +271,6 @@ contract StageRaise {
 
 
     function withdrawFunds(uint256 _amount, uint256 _projectId, address payable _to) external  onlyProjectOwner(_projectId){
-        if (projectById[_projectId].basics.owner == address(0)){
-            revert StageRaise__ProjectNotFound();
-        }
         if (_amount <= 0 ){
             revert StageRaise__AmountToWithdrawMustBeGreaterThanZero();
         }

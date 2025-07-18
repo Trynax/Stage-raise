@@ -9,13 +9,13 @@ import {console} from "forge-std/console.sol";
 error StageRaise__DeadlineMustBeInFuture();
 error StageRaise__TargetAmountMustBeGreaterThanZero();
 error StageRaise__AmountToFundMustBeGreaterThanZero();
-error StageRaise__AmountToWithdrawMustBeGreaterThanZero();
 error StageRaise__ProjectNotActive();
 error StageRaise__ProjectNotFound();
 error StageRaise__TotalRaiseCantSurpassTargetRaise();
 error StageRaise__DeadlineForFundingHasPassed();
 error StageRaise__FundsCanOnlyBeWithdrawByProjectOwner();
 error StageRaise__ETHTransferFailed();
+error StageRaise__AmountToWithdrawMustBeGreaterThanZero();
 error StageRaise__YouCannotWithdrawFromActiveProject();
 error StageRaise__YouCannotWithdrawMoreThanTheProjectBalance();
 error StageRaise__YouCannotHaveZeroMilestoneForAMileStoneProject();
@@ -27,7 +27,11 @@ error StageRaise__VotingProcessFormilestoneMustBeInFuture();
 error StageRaise__FunderHasAlreadyVoted();
 error StageRaise__TimeHasNotPassedForTheVotingProcess(); 
 error StageRaise__VotingPeriodHasPassed(); 
+error StageRaise__CannotWithdrawWhileFundingIsActive();
 error StageRaise__ProjectHasReachedTheFinalMileStoneStage(); 
+error StageRaise__YoucannotWWithdrawWhileFundingIsStillOn();
+error StageRaise__YouCannotOpenNonMilestoneProjectForVoting();
+error StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing();
 
 contract StageRaiseTest is Test{
     event ProjectCreated (string indexed name, uint256 indexed targetAmount, uint256 indexed deadline);
@@ -43,7 +47,7 @@ contract StageRaiseTest is Test{
             StageRaise.CreateProjectParams({
                 name: "Stage Raise",
                 description: "decentralized crowdfunding",
-                targetAmount: 2 ether,
+                targetAmount: 10 ether,
                 deadline: block.timestamp +20000,
                 milestoneCount: 5,
                 milestoneBased: true,
@@ -125,7 +129,7 @@ contract StageRaiseTest is Test{
                 description: "decentralized crowdfunding 6",
                 targetAmount: 2 ether,
                 deadline: block.timestamp +20000,
-                milestoneCount: 5,
+                milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200
             })
@@ -180,6 +184,25 @@ contract StageRaiseTest is Test{
         assert(stageRaise.getProjectMilestoneStage(1)==2);
         assert(stageRaise.getProjectMileStoneVotingStatus(1)==false);
     }
+    function testVotingNo() external {
+       vm.prank(TRYNAX);
+       stageRaise.fundProject{value: 1 ether}(1);
+       
+       vm.warp(block.timestamp + 25000);
+       stageRaise.openProjectForMilestoneVotes(1);
+       
+       vm.prank(TRYNAX);
+       stageRaise.takeAVoteForMilestoneStageIncrease(1, false);
+       
+       assert(stageRaise.getProjectNoVotes(1) == stageRaise.calculateFunderVotingPower(TRYNAX, 1));
+       assert(stageRaise.getProjectYesVotes(1) == 0);
+   }
+
+   function testGetAmountWithdrawableForNonExistentProject() external {
+       uint256 withdrawable = stageRaise.getAmountWithdrawableForAProject(999);
+       assert(withdrawable == 0);
+   }
+
 
 
     // Testing View and Pure Function 
@@ -189,6 +212,35 @@ contract StageRaiseTest is Test{
 
         assertEq(projectCount, 5);
     }
+      function testGetAmountWithdrawableForNonMilestoneProject() external {
+       vm.startPrank(TRYNAX);
+       stageRaise.createProject(
+           StageRaise.CreateProjectParams({
+               name: "Non-Milestone Project",
+               description: "No milestones",
+               targetAmount: 5 ether,
+               deadline: block.timestamp + 20000,
+               milestoneCount: 0,
+               milestoneBased: false,
+               timeForMileStoneVotingProcess: 200
+           })
+       );
+       
+       stageRaise.fundProject{value: 3 ether}(6);
+       vm.stopPrank();
+       
+       uint256 withdrawable = stageRaise.getAmountWithdrawableForAProject(6);
+       assert(withdrawable == 3 ether);
+   }
+
+   function testGetAmountWithdrawableForMilestoneProject() external {
+       vm.prank(TRYNAX);
+       stageRaise.fundProject{value: 4 ether}(1);
+       
+       uint256 withdrawable = stageRaise.getAmountWithdrawableForAProject(1);
+       assert(withdrawable == 800000000000000000);
+   }
+
     // Testing Errors 
 
     function testCreatingProjectDeadlineMustBeInFuture() external{
@@ -251,6 +303,259 @@ contract StageRaiseTest is Test{
     stageRaise.fundProject{value:1 ether}(1);
    }
 
+   function testWithdrawingByNonOwner () external {
+
+    vm.startPrank(TRYNAX);
+    stageRaise.fundProject{value: 5 ether}(1);
+    vm.warp(block.timestamp+200000);
+    vm.expectRevert(StageRaise__CanOnlyBeCalledByProjectOwner.selector);
+    stageRaise.withdrawFunds(1 ether , 1,  payable(TRYNAX));
+    vm.stopPrank();
+
+   }
+
+
+   function testWithdrawingZeroAmount() external{
+
+    stageRaise.fundProject{value: 5 ether}(1);
+    vm.warp(block.timestamp+200000);
+    vm.expectRevert(StageRaise__AmountToWithdrawMustBeGreaterThanZero.selector);
+    stageRaise.withdrawFunds(0, 1, payable(TRYNAX));
+   }
+
+
+   function testCreatingProjectWithMilestoneWithZeroMilestoneCount() external{
+    vm.expectRevert(StageRaise__YouCannotHaveZeroMilestoneForAMileStoneProject.selector);
+    stageRaise.createProject(
+        StageRaise.CreateProjectParams({
+            name:"Credula",
+            description:"Testing.... ",
+            targetAmount: 10 ether,
+            deadline: 20000,
+            milestoneCount:0,
+            milestoneBased: true,
+            timeForMileStoneVotingProcess:200
+        })
+    );
+   }
+
+
+   function testFundingInactiveProject() external {
+       vm.warp(block.timestamp + 50000);
+       vm.expectRevert(StageRaise__DeadlineForFundingHasPassed.selector);
+       stageRaise.fundProject{value: 1 ether}(1);
+   }
+
+   function testWithdrawMoreThanProjectBalance() external {
+       vm.startPrank(TRYNAX);
+       stageRaise.createProject(
+           StageRaise.CreateProjectParams({
+               name: "Test Project",
+               description: "Test description",
+               targetAmount: 5 ether,
+               deadline: block.timestamp + 20000,
+               milestoneCount: 0,
+               milestoneBased: false,
+               timeForMileStoneVotingProcess: 200
+           })
+       );
+       
+       stageRaise.fundProject{value: 2 ether}(6);
+       vm.warp(block.timestamp + 25000); 
+       
+       vm.expectRevert(StageRaise__YouCannotWithdrawMoreThanTheProjectBalance.selector);
+       stageRaise.withdrawFunds(3 ether, 6, payable(TRYNAX));
+       vm.stopPrank();
+   }
+
+   function testWithdrawMoreThanWithdrawableBalance() external {
+       vm.startPrank(TRYNAX);
+       stageRaise.createProject(
+           StageRaise.CreateProjectParams({
+               name: "Milestone Test",
+               description: "Test milestone project",
+               targetAmount: 5 ether,
+               deadline: block.timestamp + 20000,
+               milestoneCount: 4,
+               milestoneBased: true,
+               timeForMileStoneVotingProcess: 200
+           })
+       );
+       
+       stageRaise.fundProject{value: 4 ether}(6);
+       vm.warp(block.timestamp + 25000); 
+       
+    
+       vm.expectRevert(StageRaise__YouCannotWithdrawMoreThanWithdrawableBalance.selector);
+       stageRaise.withdrawFunds(2 ether, 6, payable(TRYNAX));
+       vm.stopPrank();
+   }
+
+   function testNonFunderTryingToVote() external {
+       vm.warp(block.timestamp + 25000);
+       stageRaise.openProjectForMilestoneVotes(1);
+       
+       address nonFunder = makeAddr("NON_FUNDER");
+       vm.prank(nonFunder);
+       vm.expectRevert(StageRaise__AddressHasNotFundTheProject.selector);
+       stageRaise.takeAVoteForMilestoneStageIncrease(1, true);
+   }
+
+   function testVotingOnClosedProject() external {
+       vm.prank(TRYNAX);
+       stageRaise.fundProject{value: 1 ether}(1);
+       
+       
+       vm.prank(TRYNAX);
+       vm.expectRevert(StageRaise__ProjectIsNotOpenForMilestoneVotingProcess.selector);
+       stageRaise.takeAVoteForMilestoneStageIncrease(1, true);
+   }
+
+   function testCreateProjectWithZeroVotingTime() external {
+       vm.expectRevert(StageRaise__VotingProcessFormilestoneMustBeInFuture.selector);
+       stageRaise.createProject(
+           StageRaise.CreateProjectParams({
+               name: "Test Project",
+               description: "Test description",
+               targetAmount: 5 ether,
+               deadline: block.timestamp + 20000,
+               milestoneCount: 3,
+               milestoneBased: true,
+               timeForMileStoneVotingProcess: 0
+           })
+       );
+   }
+
+   function testFunderVotingTwice() external {
+       vm.prank(TRYNAX);
+       stageRaise.fundProject{value: 1 ether}(1);
+       
+       vm.warp(block.timestamp + 25000);
+       stageRaise.openProjectForMilestoneVotes(1);
+       
+       vm.startPrank(TRYNAX);
+       stageRaise.takeAVoteForMilestoneStageIncrease(1, true);
+       
+       vm.expectRevert(StageRaise__FunderHasAlreadyVoted.selector);
+       stageRaise.takeAVoteForMilestoneStageIncrease(1, false);
+       vm.stopPrank();
+   }
+
+   function testFinalizeVotingTooEarly() external {
+       vm.prank(TRYNAX);
+       stageRaise.fundProject{value: 1 ether}(1);
+       
+       vm.warp(block.timestamp + 25000);
+       stageRaise.openProjectForMilestoneVotes(1);
+       
+       
+       vm.expectRevert(StageRaise__TimeHasNotPassedForTheVotingProcess.selector);
+       stageRaise.finalizeVotingProcess(1);
+   }
+
+   function testVotingAfterPeriodExpired() external {
+       vm.prank(TRYNAX);
+       stageRaise.fundProject{value: 1 ether}(1);
+       
+       vm.warp(block.timestamp + 25000);
+       stageRaise.openProjectForMilestoneVotes(1);
+       
+       
+       vm.warp(block.timestamp + 300);
+       
+       vm.prank(TRYNAX);
+       vm.expectRevert(StageRaise__VotingPeriodHasPassed.selector);
+       stageRaise.takeAVoteForMilestoneStageIncrease(1, true);
+   }
+
+   function testWithdrawWhileFundingActive() external {
+       vm.startPrank(TRYNAX);
+       stageRaise.createProject(
+           StageRaise.CreateProjectParams({
+               name: "Active Project",
+               description: "Still active for funding",
+               targetAmount: 5 ether,
+               deadline: block.timestamp + 20000,
+               milestoneCount: 0,
+               milestoneBased: false,
+               timeForMileStoneVotingProcess: 200
+           })
+       );
+       
+       stageRaise.fundProject{value: 2 ether}(6);
+       
+
+       vm.expectRevert(StageRaise__CannotWithdrawWhileFundingIsActive.selector);
+       stageRaise.withdrawFunds(1 ether, 6, payable(TRYNAX));
+       vm.stopPrank();
+   }
+
+   function testOpenVotingForFinalMilestone() external {
+       vm.startPrank(TRYNAX);
+       stageRaise.createProject(
+           StageRaise.CreateProjectParams({
+               name: "Final Milestone Test",
+               description: "Test final milestone",
+               targetAmount: 5 ether,
+               deadline: block.timestamp + 20000,
+               milestoneCount: 2,
+               milestoneBased: true,
+               timeForMileStoneVotingProcess: 200
+           })
+       );
+       
+       stageRaise.fundProject{value: 2 ether}(6);
+       vm.warp(block.timestamp + 25000); 
+       
+     
+       stageRaise.openProjectForMilestoneVotes(6);
+       stageRaise.takeAVoteForMilestoneStageIncrease(6, true);
+       vm.warp(block.timestamp + 300);
+       stageRaise.finalizeVotingProcess(6);
+       
+      
+       vm.expectRevert(StageRaise__ProjectHasReachedTheFinalMileStoneStage.selector);
+       stageRaise.openProjectForMilestoneVotes(6);
+       vm.stopPrank();
+   }
+
+   function testOpenVotingForNonMilestoneProject() external {
+       vm.startPrank(TRYNAX);
+       stageRaise.createProject(
+           StageRaise.CreateProjectParams({
+               name: "Non-Milestone Project",
+               description: "No milestones",
+               targetAmount: 5 ether,
+               deadline: block.timestamp + 20000,
+               milestoneCount: 0,
+               milestoneBased: false,
+               timeForMileStoneVotingProcess: 200
+           })
+       );
+       
+       vm.warp(block.timestamp + 25000); 
+       
+       vm.expectRevert(StageRaise__YouCannotOpenNonMilestoneProjectForVoting.selector);
+       stageRaise.openProjectForMilestoneVotes(6);
+       vm.stopPrank();
+   }
+
+   function testOpenVotingWhileFundingOngoing() external {
+       vm.warp(block.timestamp + 15000); 
+       
+       vm.expectRevert(StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing.selector);
+       stageRaise.openProjectForMilestoneVotes(1);
+   }
+
+   function testFinalizeVotingWhenNotOpen() external {
+       vm.expectRevert(StageRaise__ProjectIsNotOpenForMilestoneVotingProcess.selector);
+       stageRaise.finalizeVotingProcess(1);
+   }
+
+   function testWithdrawFromNonExistentProject() external {
+       vm.expectRevert(StageRaise__ProjectNotFound.selector);
+       stageRaise.withdrawFunds(1 ether, 999, payable(address(this)));
+   }
 
    // Testing Events 
 
@@ -286,5 +591,42 @@ contract StageRaiseTest is Test{
    }
 
 
+   
+
+   
+ 
+   function testCalculateFunderVotingPowerForNonExistentProject() external {
+       vm.expectRevert(StageRaise__ProjectNotFound.selector);
+       stageRaise.calculateFunderVotingPower(TRYNAX, 999);
+   }
+
+   function testCalculateFunderVotingPowerForNonFunder() external {
+       address nonFunder = makeAddr("NON_FUNDER");
+       vm.expectRevert(StageRaise__AddressHasNotFundTheProject.selector);
+       stageRaise.calculateFunderVotingPower(nonFunder, 1);
+   }
+
+   function testGetProjectAmountWithdrawn() external {
+       vm.startPrank(TRYNAX);
+       stageRaise.createProject(
+           StageRaise.CreateProjectParams({
+               name: "Withdrawal Test",
+               description: "Test amount withdrawn",
+               targetAmount: 5 ether,
+               deadline: block.timestamp + 20000,
+               milestoneCount: 0,
+               milestoneBased: false,
+               timeForMileStoneVotingProcess: 200
+           })
+       );
+       
+       stageRaise.fundProject{value: 3 ether}(6);
+       vm.warp(block.timestamp + 25000);
+       stageRaise.withdrawFunds(1 ether, 6, payable(TRYNAX));
+       vm.stopPrank();
+       
+       uint256 amountWithdrawn = stageRaise.getProjectAmountWithdrawn(6);
+       assert(amountWithdrawn == 1 ether);
+   }
 
 }
