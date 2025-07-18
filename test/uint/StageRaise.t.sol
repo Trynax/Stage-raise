@@ -100,8 +100,6 @@ contract StageRaiseTest is Test{
 
     }
 
-
-
     function testForTakingAVote() external {
 
         vm.prank(TRYNAX);
@@ -113,9 +111,29 @@ contract StageRaiseTest is Test{
         stageRaise.takeAVoteForMilestoneStageIncrease(1,true);
         vm.stopPrank();
         assert(stageRaise.getProjectYesVotes(1)==stageRaise.calculateFunderVotingPower(TRYNAX, 1));
+        assert(stageRaise.getProjectNoVotes(1)==0);
 
 
     }
+
+    function testFinalizeVotingProcess () external{
+        
+        vm.prank(TRYNAX);
+        stageRaise.fundProject{value: 1 ether}(1);
+        vm.warp(block.timestamp + 20000000);
+
+        stageRaise.openProjectForMilestoneVotes(1);
+
+        vm.startPrank(TRYNAX);
+        stageRaise.takeAVoteForMilestoneStageIncrease(1, true);
+        vm.stopPrank();
+        vm.warp(block.timestamp+20000);
+        stageRaise.finalizeVotingProcess(1);
+
+        assert(stageRaise.getProjectMilestoneStage(1)==2);
+    }
+
+
     // Testing View and Pure Function 
     function testGetProjectCount () external {
 

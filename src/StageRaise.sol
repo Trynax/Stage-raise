@@ -399,5 +399,8 @@ contract StageRaise {
     function getProjectYesVotes(uint256 _projectId) public view returns(uint256){
         return projectById[_projectId].votesForYes;
     }
+    function getProjectNoVotes(uint256 _projectId) public view returns(uint256){
+        return projectById[_projectId].votesForNo;
+    }
 
 }
