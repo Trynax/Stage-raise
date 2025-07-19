@@ -132,6 +132,18 @@ contract StageRaise {
         uint256 indexed amountWithdrawn,
         address indexed Withdrawer
     );
+
+    event ProjectOpenedForVoting(
+        string indexed name,
+        uint256 indexed timeOpenForVoting,
+        uint256 indexed projectId
+    );
+
+    event ProjectVotingProcessFinalized(
+        string indexed name,
+        uint256 indexed projectById,
+        bool indexed voteResult
+    );
     //Modifier
 
     modifier onlyProjectOwner (uint256 _projectId){
@@ -249,6 +261,7 @@ contract StageRaise {
         }
         project.milestone.openForMilestoneVotingStage = true;
         project.milestone.timeForTheVotingProcessToElapsed = project.milestone.timeForMilestoneVotingProcess + block.timestamp;
+        emit ProjectOpenedForVoting(project.basics.name, project.milestone.timeForTheVotingProcessToElapsed, _projectId);
     }
 
     function finalizeVotingProcess(uint256 _projectId) external{ 
@@ -263,10 +276,12 @@ contract StageRaise {
         if (project.milestone.votesForYes > project.milestone.votesForNo){
             project.milestone.milestoneStage++;
         }
+        bool voteResult = project.milestone.votesForYes > project.milestone.votesForNo ? true : false;
         project.milestone.votesForNo=0;
         project.milestone.votesForYes=0;
         resetVotersMapping(_projectId);
         project.milestone.openForMilestoneVotingStage = false;
+        emit ProjectVotingProcessFinalized(project.basics.name,_projectId,voteResult);
     }
 
 

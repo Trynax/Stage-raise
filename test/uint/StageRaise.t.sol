@@ -36,6 +36,23 @@ error StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing();
 contract StageRaiseTest is Test{
     event ProjectCreated (string indexed name, uint256 indexed targetAmount, uint256 indexed deadline);
     event ProjectFunded (string indexed name, uint256 indexed AmoutFunded, address indexed Funder);
+    event WithDrawnFromProject(
+        string indexed name,
+        uint256 indexed amountWithdrawn,
+        address indexed Withdrawer
+    );
+
+    event ProjectOpenedForVoting(
+        string indexed name,
+        uint256 indexed timeOpenForVoting,
+        uint256 indexed projectId
+    );
+
+    event ProjectVotingProcessFinalized(
+        string indexed name,
+        uint256 indexed projectById,
+        bool indexed voteResult
+    );
     StageRaise stageRaise;
     address TRYNAX = makeAddr("TRYNAX");
 
@@ -591,7 +608,45 @@ contract StageRaiseTest is Test{
    }
 
 
+   function testWithdrawFundsEvents() external{
    
+     
+        stageRaise.fundProject{value:5 ether}(1);
+        vm.warp(block.timestamp+2000000);
+        vm.expectEmit(true, true, true, false);
+        emit WithDrawnFromProject("Stage Raise", 1 ether, address(this));
+        stageRaise.withdrawFunds(1 ether,1, payable(TRYNAX));
+
+   }
+
+   function testProjectOpenedForVotingEvents() external{
+    
+    stageRaise.fundProject{value: 1 ether}(1);
+    vm.warp(block.timestamp+200000);
+    vm.expectEmit(true, true, true, false);
+    emit ProjectOpenedForVoting("Stage Raise",block.timestamp+200 , 1);
+    stageRaise.openProjectForMilestoneVotes(1);
+
+       
+   }
+
+   function testFinalizedProjectEvents() external{
+       vm.prank(TRYNAX);
+        stageRaise.fundProject{value: 1 ether}(1);
+        vm.warp(block.timestamp + 20000000);
+
+        stageRaise.openProjectForMilestoneVotes(1);
+
+        vm.startPrank(TRYNAX);
+        stageRaise.takeAVoteForMilestoneStageIncrease(1, true);
+        vm.stopPrank();
+        vm.warp(block.timestamp+20000);
+        vm.expectEmit(true, true, true, false);
+        emit ProjectVotingProcessFinalized("Stage Raise", 1, true);
+        stageRaise.finalizeVotingProcess(1);
+       
+        
+   }
 
    
  
