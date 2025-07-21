@@ -5,6 +5,7 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {StageRaise } from "../../src/StageRaise.sol";
 import {console} from "forge-std/console.sol";
+import {HelperConfig} from "../../script/HelperConfig.s.sol";
 
 error StageRaise__DeadlineMustBeInFuture();
 error StageRaise__TargetAmountMustBeGreaterThanZero();
@@ -57,7 +58,13 @@ contract StageRaiseTest is Test{
     address TRYNAX = makeAddr("TRYNAX");
 
     function setUp() public {
-        stageRaise = new StageRaise();
+        // Create a mock price feed for testing
+    
+        HelperConfig helperConfig = new HelperConfig();
+        address ethUsdPriceFeed = helperConfig.activeNetworkConfig();
+        stageRaise = new StageRaise(ethUsdPriceFeed);
+  
+
             
         vm.deal(TRYNAX, 10 ether);
          stageRaise.createProject(
@@ -68,7 +75,9 @@ contract StageRaiseTest is Test{
                 deadline: block.timestamp +20000,
                 milestoneCount: 5,
                 milestoneBased: true,
-                timeForMileStoneVotingProcess: 200
+                timeForMileStoneVotingProcess: 200,
+                minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
             })
         );
          stageRaise.createProject(
@@ -79,7 +88,9 @@ contract StageRaiseTest is Test{
                 deadline: block.timestamp +30000,
                 milestoneCount: 5,
                 milestoneBased: true,
-                timeForMileStoneVotingProcess: 200
+                timeForMileStoneVotingProcess: 200,
+                minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
             })
         );
         stageRaise.createProject(
@@ -90,7 +101,9 @@ contract StageRaiseTest is Test{
                 deadline: block.timestamp +20000,
                 milestoneCount: 5,
                 milestoneBased: true,
-                timeForMileStoneVotingProcess: 200
+                timeForMileStoneVotingProcess: 200,
+                minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
             })
         );
        
@@ -102,7 +115,9 @@ contract StageRaiseTest is Test{
                 deadline: block.timestamp +30000,
                 milestoneCount: 5,
                 milestoneBased: true,
-                timeForMileStoneVotingProcess: 200
+                timeForMileStoneVotingProcess: 200,
+                minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
             })
         );
         stageRaise.createProject(
@@ -113,7 +128,9 @@ contract StageRaiseTest is Test{
                 deadline: block.timestamp +30000,
                 milestoneCount: 5,
                 milestoneBased: true,
-                timeForMileStoneVotingProcess: 200
+                timeForMileStoneVotingProcess: 200,
+                minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
             })
         );
 
@@ -148,7 +165,9 @@ contract StageRaiseTest is Test{
                 deadline: block.timestamp +20000,
                 milestoneCount: 0,
                 milestoneBased: false,
-                timeForMileStoneVotingProcess: 200
+                timeForMileStoneVotingProcess: 200,
+                minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
             })
         );
         stageRaise.fundProject{value:1 ether}(6);
@@ -239,7 +258,9 @@ contract StageRaiseTest is Test{
                deadline: block.timestamp + 20000,
                milestoneCount: 0,
                milestoneBased: false,
-               timeForMileStoneVotingProcess: 200
+               timeForMileStoneVotingProcess: 200,
+               minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
            })
        );
        
@@ -270,7 +291,9 @@ contract StageRaiseTest is Test{
                 deadline: block.timestamp,
                 milestoneCount: 5,
                 milestoneBased: true,
-                timeForMileStoneVotingProcess: 200
+                timeForMileStoneVotingProcess: 200,
+                minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
             })
         );
    }
@@ -286,7 +309,9 @@ contract StageRaiseTest is Test{
             deadline: block.timestamp+200,
             milestoneCount: 5,
             milestoneBased: true,
-            timeForMileStoneVotingProcess: 200
+            timeForMileStoneVotingProcess: 200,
+            minFundingUSD: 10e8,  // $10
+            maxFundingUSD: 1000e8 // $1000
         })
      );
    }
@@ -351,7 +376,9 @@ contract StageRaiseTest is Test{
             deadline: 20000,
             milestoneCount:0,
             milestoneBased: true,
-            timeForMileStoneVotingProcess:200
+            timeForMileStoneVotingProcess:200,
+            minFundingUSD: 10e8,  // $10
+            maxFundingUSD: 1000e8 // $1000
         })
     );
    }
@@ -373,7 +400,9 @@ contract StageRaiseTest is Test{
                deadline: block.timestamp + 20000,
                milestoneCount: 0,
                milestoneBased: false,
-               timeForMileStoneVotingProcess: 200
+               timeForMileStoneVotingProcess: 200,
+               minFundingUSD: 10e8,  // $10
+               maxFundingUSD: 1000e8 // $1000
            })
        );
        
@@ -395,7 +424,9 @@ contract StageRaiseTest is Test{
                deadline: block.timestamp + 20000,
                milestoneCount: 4,
                milestoneBased: true,
-               timeForMileStoneVotingProcess: 200
+               timeForMileStoneVotingProcess: 200,
+               minFundingUSD: 10e8,  // $10
+               maxFundingUSD: 1000e8 // $1000
            })
        );
        
@@ -438,7 +469,9 @@ contract StageRaiseTest is Test{
                deadline: block.timestamp + 20000,
                milestoneCount: 3,
                milestoneBased: true,
-               timeForMileStoneVotingProcess: 0
+               timeForMileStoneVotingProcess: 0,
+               minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
            })
        );
    }
@@ -495,7 +528,9 @@ contract StageRaiseTest is Test{
                deadline: block.timestamp + 20000,
                milestoneCount: 0,
                milestoneBased: false,
-               timeForMileStoneVotingProcess: 200
+               timeForMileStoneVotingProcess: 200,
+               minFundingUSD: 10e8,  // $10
+               maxFundingUSD: 1000e8 // $1000
            })
        );
        
@@ -517,7 +552,9 @@ contract StageRaiseTest is Test{
                deadline: block.timestamp + 20000,
                milestoneCount: 2,
                milestoneBased: true,
-               timeForMileStoneVotingProcess: 200
+               timeForMileStoneVotingProcess: 200,
+               minFundingUSD: 10e8,  // $10
+               maxFundingUSD: 1000e8 // $1000
            })
        );
        
@@ -546,7 +583,9 @@ contract StageRaiseTest is Test{
                deadline: block.timestamp + 20000,
                milestoneCount: 0,
                milestoneBased: false,
-               timeForMileStoneVotingProcess: 200
+               timeForMileStoneVotingProcess: 200,
+               minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
            })
        );
        
@@ -591,7 +630,9 @@ contract StageRaiseTest is Test{
                 deadline: deadline,
                 milestoneCount: 5,
                 milestoneBased: true,
-                timeForMileStoneVotingProcess: 200
+                timeForMileStoneVotingProcess: 200,
+                minFundingUSD: 10e8,  // $10
+                maxFundingUSD: 1000e8 // $1000
             })
         );
    }
@@ -671,7 +712,9 @@ contract StageRaiseTest is Test{
                deadline: block.timestamp + 20000,
                milestoneCount: 0,
                milestoneBased: false,
-               timeForMileStoneVotingProcess: 200
+               timeForMileStoneVotingProcess: 200,
+               minFundingUSD: 10e8,  // $10
+               maxFundingUSD: 1000e8 // $1000
            })
        );
        

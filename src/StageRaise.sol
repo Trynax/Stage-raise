@@ -20,6 +20,8 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.20;
 
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+
 //Error
 
 error StageRaise__DeadlineMustBeInFuture();
@@ -48,6 +50,9 @@ error StageRaise__ProjectHasReachedTheFinalMileStoneStage();
 error StageRaise__YoucannotWWithdrawWhileFundingIsStillOn();
 error StageRaise__YouCannotOpenNonMilestoneProjectForVoting();
 error StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing();
+error StageRaise__FundingAmountBelowMinimum();
+error StageRaise__FundingAmountAboveMaximum();
+error StageRaise__MinFundingMustBeLessThanMaxFunding();
 
 
 contract StageRaise {
@@ -64,6 +69,8 @@ contract StageRaise {
         uint256 deadline;
         bool isActive;
         uint256 totalContributors;
+        uint256 minFundingUSD; // Minimum funding amount in USD (8 decimals)
+        uint256 maxFundingUSD; // Maximum funding amount in USD (8 decimals)
     }
 
     struct ProjectMilestone {
@@ -96,6 +103,8 @@ contract StageRaise {
         uint256 deadline;
         bool isActive;
         uint256 totalContributors;
+        uint256 minFundingUSD;
+        uint256 maxFundingUSD;
         uint256 milestoneCount;
         bool milestoneBased; 
     }
@@ -108,11 +117,16 @@ contract StageRaise {
         uint256 milestoneCount;
         bool milestoneBased;
         uint256 timeForMileStoneVotingProcess;
+        uint256 minFundingUSD; // Minimum funding amount in USD (8 decimals)
+        uint256 maxFundingUSD; // Maximum funding amounts in USD (8 decimals)
     }
+
+   
 
     //State Variables
     mapping(uint256 => Project) public projectById;
     uint256 private s_projectCount;
+     AggregatorV3Interface public  s_aggregator;
 
     //Events
 
@@ -165,6 +179,12 @@ contract StageRaise {
         _;
     }
 
+
+
+    constructor(address _aggregatorAddress) {
+        s_aggregator = AggregatorV3Interface(_aggregatorAddress);
+    }
+
     //Functions
 
     function createProject(CreateProjectParams memory params) external {
@@ -183,6 +203,10 @@ contract StageRaise {
             revert StageRaise__VotingProcessFormilestoneMustBeInFuture(); 
         }
 
+        if (params.minFundingUSD >= params.maxFundingUSD) {
+            revert StageRaise__MinFundingMustBeLessThanMaxFunding();
+        }
+
         s_projectCount++;
 
         Project storage newProject = projectById[s_projectCount];
@@ -197,6 +221,8 @@ contract StageRaise {
         newProject.basics.deadline = params.deadline;
         newProject.basics.isActive = true;
         newProject.basics.totalContributors = 0;
+        newProject.basics.minFundingUSD = params.minFundingUSD;
+        newProject.basics.maxFundingUSD = params.maxFundingUSD;
 
         // Set milestone info
         newProject.milestone.milestoneCount = params.milestoneCount;
@@ -223,6 +249,16 @@ contract StageRaise {
         if (!projectById[_projectId].basics.isActive) {
             revert StageRaise__ProjectNotActive();
         }
+        
+      
+        uint256 fundingAmountUSD = getUSDValue(msg.value);
+        if (fundingAmountUSD < projectById[_projectId].basics.minFundingUSD) {
+            revert StageRaise__FundingAmountBelowMinimum();
+        }
+        if (fundingAmountUSD > projectById[_projectId].basics.maxFundingUSD) {
+            revert StageRaise__FundingAmountAboveMaximum();
+        }
+        
         if (
             msg.value + projectById[_projectId].basics.raisedAmount >
             projectById[_projectId].basics.targetAmount
@@ -361,6 +397,8 @@ contract StageRaise {
             deadline:p.basics.deadline,
             isActive:p.basics.isActive,
             totalContributors:p.basics.totalContributors,
+            minFundingUSD:p.basics.minFundingUSD,
+            maxFundingUSD:p.basics.maxFundingUSD,
             milestoneCount:p.milestone.milestoneCount,
             milestoneBased:p.milestone.milestoneBased
         
@@ -429,6 +467,36 @@ contract StageRaise {
     }
     function getProjectNoVotes(uint256 _projectId) public view returns(uint256){
         return projectById[_projectId].milestone.votesForNo;
+    }
+
+    function getEthPrice() public view returns (uint256) {
+    (, int256 price, , , ) = s_aggregator.latestRoundData();
+
+    return uint256(price);
+    }
+
+    function getAggregatorDecimals() public view returns (uint8) {
+        return s_aggregator.decimals();
+    }
+
+    function getUSDValue(uint256 _ethAmount) public view returns (uint256) {
+        (, int256 price, , , ) = s_aggregator.latestRoundData();
+       
+        return (uint256(price) * _ethAmount) / 1e18;
+    }
+
+    function getETHValue(uint256 _usdAmount) public view returns (uint256) {
+        (, int256 price, , , ) = s_aggregator.latestRoundData();
+     
+        return (_usdAmount * 1e18) / uint256(price);
+    }
+
+    function getProjectMinFundingUSD(uint256 _projectId) public view returns (uint256) {
+        return projectById[_projectId].basics.minFundingUSD;
+    }
+
+    function getProjectMaxFundingUSD(uint256 _projectId) public view returns (uint256) {
+        return projectById[_projectId].basics.maxFundingUSD;
     }
 
 }
