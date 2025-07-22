@@ -22,6 +22,8 @@ error StageRaise__YouCannotWithdrawMoreThanTheProjectBalance();
 error StageRaise__YouCannotHaveZeroMilestoneForAMileStoneProject();
 error StageRaise__YouCannotWithdrawMoreThanWithdrawableBalance();
 error StageRaise__AddressHasNotFundTheProject();
+error StageRaise__FundingAmountAboveMaximum();
+error StageRaise__FundingAmountBelowMinimum();
 error StageRaise__CanOnlyBeCalledByProjectOwner();
 error StageRaise__ProjectIsNotOpenForMilestoneVotingProcess();
 error StageRaise__VotingProcessFormilestoneMustBeInFuture(); 
@@ -76,8 +78,8 @@ contract StageRaiseTest is Test{
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+                minFundingUSD: 1000e8,  // $10000
+                maxFundingUSD: 10000e8 // $10000
             })
         );
          stageRaise.createProject(
@@ -89,8 +91,8 @@ contract StageRaiseTest is Test{
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+                minFundingUSD: 1000e8,  // $1000
+                maxFundingUSD: 10000e8 // $100000
             })
         );
         stageRaise.createProject(
@@ -102,8 +104,8 @@ contract StageRaiseTest is Test{
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+                minFundingUSD: 1000e8,  // $1000
+                maxFundingUSD: 10000e8 // $100000
             })
         );
        
@@ -116,8 +118,8 @@ contract StageRaiseTest is Test{
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+                minFundingUSD: 1000e8,  // $100
+                maxFundingUSD: 10000e8 // $1000
             })
         );
         stageRaise.createProject(
@@ -129,8 +131,8 @@ contract StageRaiseTest is Test{
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+                minFundingUSD: 1000e8,  // $10
+                maxFundingUSD: 10000e8 // $1000
             })
         );
 
@@ -166,8 +168,8 @@ contract StageRaiseTest is Test{
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+                minFundingUSD: 1000e8,  // $10
+                maxFundingUSD: 10000e8 // $1000
             })
         );
         stageRaise.fundProject{value:1 ether}(6);
@@ -259,8 +261,8 @@ contract StageRaiseTest is Test{
                milestoneCount: 0,
                milestoneBased: false,
                timeForMileStoneVotingProcess: 200,
-               minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+               minFundingUSD: 1000e8,  // $10
+                maxFundingUSD: 10000e8 // $1000
            })
        );
        
@@ -292,8 +294,8 @@ contract StageRaiseTest is Test{
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+                minFundingUSD: 1000e8,  // $10
+                maxFundingUSD: 10000e8 // $1000
             })
         );
    }
@@ -310,8 +312,8 @@ contract StageRaiseTest is Test{
             milestoneCount: 5,
             milestoneBased: true,
             timeForMileStoneVotingProcess: 200,
-            minFundingUSD: 10e8,  // $10
-            maxFundingUSD: 1000e8 // $1000
+            minFundingUSD: 1000e8,  // $10
+            maxFundingUSD: 10000e8 // $1000
         })
      );
    }
@@ -330,12 +332,21 @@ contract StageRaiseTest is Test{
 
  
 
+   function testFundingProjectWithAmountAboveMaxUSD() external{
+    vm.expectRevert(StageRaise__FundingAmountAboveMaximum.selector);
+
+    stageRaise.fundProject{
+        value:100 ether 
+    }(1);
+
+   }
+
    function testFundingProjectWithAmountGreaterThanTarget() external{
     vm.expectRevert(StageRaise__TotalRaiseCantSurpassTargetRaise.selector);
 
     stageRaise.fundProject{
-        value:100 ether
-    }(1);
+        value:3 ether  
+    }(3);
 
    }
 
@@ -377,8 +388,8 @@ contract StageRaiseTest is Test{
             milestoneCount:0,
             milestoneBased: true,
             timeForMileStoneVotingProcess:200,
-            minFundingUSD: 10e8,  // $10
-            maxFundingUSD: 1000e8 // $1000
+            minFundingUSD: 1000e8,  // $10
+            maxFundingUSD: 10000e8 // $1000
         })
     );
    }
@@ -401,8 +412,8 @@ contract StageRaiseTest is Test{
                milestoneCount: 0,
                milestoneBased: false,
                timeForMileStoneVotingProcess: 200,
-               minFundingUSD: 10e8,  // $10
-               maxFundingUSD: 1000e8 // $1000
+               minFundingUSD: 1000e8,  // $10
+               maxFundingUSD: 10000e8 // $1000
            })
        );
        
@@ -425,8 +436,8 @@ contract StageRaiseTest is Test{
                milestoneCount: 4,
                milestoneBased: true,
                timeForMileStoneVotingProcess: 200,
-               minFundingUSD: 10e8,  // $10
-               maxFundingUSD: 1000e8 // $1000
+               minFundingUSD: 1000e8,  // $10
+               maxFundingUSD: 10000e8 // $1000
            })
        );
        
@@ -470,8 +481,8 @@ contract StageRaiseTest is Test{
                milestoneCount: 3,
                milestoneBased: true,
                timeForMileStoneVotingProcess: 0,
-               minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+               minFundingUSD: 1000e8,  // $10
+                maxFundingUSD: 10000e8 // $1000
            })
        );
    }
@@ -529,8 +540,8 @@ contract StageRaiseTest is Test{
                milestoneCount: 0,
                milestoneBased: false,
                timeForMileStoneVotingProcess: 200,
-               minFundingUSD: 10e8,  // $10
-               maxFundingUSD: 1000e8 // $1000
+               minFundingUSD: 1000e8,  // $10
+               maxFundingUSD: 10000e8 // $1000
            })
        );
        
@@ -553,8 +564,8 @@ contract StageRaiseTest is Test{
                milestoneCount: 2,
                milestoneBased: true,
                timeForMileStoneVotingProcess: 200,
-               minFundingUSD: 10e8,  // $10
-               maxFundingUSD: 1000e8 // $1000
+               minFundingUSD: 1000e8,  // $10
+               maxFundingUSD: 10000e8 // $1000
            })
        );
        
@@ -584,8 +595,8 @@ contract StageRaiseTest is Test{
                milestoneCount: 0,
                milestoneBased: false,
                timeForMileStoneVotingProcess: 200,
-               minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+               minFundingUSD: 1000e8,  // $10
+                maxFundingUSD: 10000e8 // $1000
            })
        );
        
@@ -631,8 +642,8 @@ contract StageRaiseTest is Test{
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 10e8,  // $10
-                maxFundingUSD: 1000e8 // $1000
+                minFundingUSD: 1000e8,  // $10
+                maxFundingUSD: 10000e8 // $1000
             })
         );
    }
@@ -713,8 +724,8 @@ contract StageRaiseTest is Test{
                milestoneCount: 0,
                milestoneBased: false,
                timeForMileStoneVotingProcess: 200,
-               minFundingUSD: 10e8,  // $10
-               maxFundingUSD: 1000e8 // $1000
+               minFundingUSD: 1000e8,  // $10
+               maxFundingUSD: 10000e8 // $1000
            })
        );
        
