@@ -298,6 +298,41 @@ contract StageRaiseTest is Test{
 
         assertEq(projectCount, 5);
     }
+
+    function testGetEthPrice() external {
+        uint256 ethPrice = stageRaise.getEthPrice();
+       
+        assert(ethPrice > 0);
+    }
+
+    function testGetAggregatorDecimals() external {
+        uint8 decimals = stageRaise.getAggregatorDecimals();
+      
+        assertEq(decimals, 8);
+    }
+
+    function testGetUSDValue() external {
+        uint256 ethAmount = 1 ether;
+        uint256 usdValue = stageRaise.getUSDValue(ethAmount);
+        assert(usdValue == 2000e8);
+    }
+
+    function testGetETHValue() external {
+        uint256 usdAmount = 2000e8; 
+        uint256 ethValue = stageRaise.getETHValue(usdAmount);
+      
+        assert(ethValue > 0);
+    }
+
+    function testGetProjectMinFundingUSD() external {
+        uint256 minFunding = stageRaise.getProjectMinFundingUSD(1);
+        assertEq(minFunding, 1000e8); 
+    }
+
+    function testGetProjectMaxFundingUSD() external {
+        uint256 maxFunding = stageRaise.getProjectMaxFundingUSD(1);
+        assertEq(maxFunding, 10000e8);
+    }
       function testGetAmountWithdrawableForNonMilestoneProject() external {
        vm.startPrank(TRYNAX);
        stageRaise.createProject(
@@ -440,6 +475,13 @@ contract StageRaiseTest is Test{
         value:100 ether 
     }(1);
 
+   }
+
+   function testFundingProjectWithAmountBelowMinUSD() external{
+    vm.expectRevert(StageRaise__FundingAmountBelowMinimum.selector);
+    stageRaise.fundProject{
+        value: 0.001 ether 
+    }(1);
    }
 
    function testFundingProjectWithAmountGreaterThanTarget() external{
@@ -714,11 +756,7 @@ contract StageRaiseTest is Test{
        vm.expectRevert(StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing.selector);
        stageRaise.openProjectForMilestoneVotes(1);
    }
-
-   function testFinalizeVotingWhenNotOpen() external {
-       vm.expectRevert(StageRaise__ProjectIsNotOpenForMilestoneVotingProcess.selector);
-       stageRaise.finalizeVotingProcess(1);
-   }
+ 
 
    function testWithdrawFromNonExistentProject() external {
        vm.expectRevert(StageRaise__ProjectNotFound.selector);
@@ -760,27 +798,6 @@ contract StageRaiseTest is Test{
        stageRaise.openProjectForMilestoneVotes(1);
    }
 
-   function testRequestRefundBeforeThreeFailures() external {
-       vm.prank(TRYNAX);
-       stageRaise.fundProject{value: 1 ether}(1);
-       
-       
-       for (uint256 i = 0; i < 2; i++) {
-           vm.warp(block.timestamp + 25000);
-           stageRaise.openProjectForMilestoneVotes(1);
-           
-           vm.prank(TRYNAX);
-           stageRaise.takeAVoteForMilestoneStageIncrease(1, false);
-           
-           vm.warp(block.timestamp + 300);
-           stageRaise.finalizeVotingProcess(1);
-       }
-       
-      
-       vm.prank(TRYNAX);
-       vm.expectRevert(StageRaise__RefundIsNotAllowed.selector);
-       stageRaise.requestRefund(1);
-   }
 
    function testRequestRefundOnNonMilestoneProject() external {
        vm.startPrank(TRYNAX);
@@ -825,6 +842,32 @@ contract StageRaiseTest is Test{
        vm.prank(nonFunder);
        vm.expectRevert(StageRaise__AddressHasNotFundTheProject.selector);
        stageRaise.requestRefund(1);
+   }
+
+   function testRequestRefundBeforeThreeFailures() external {
+       vm.prank(TRYNAX);
+       stageRaise.fundProject{value: 1 ether}(1);
+       
+       
+       for (uint256 i = 0; i < 2; i++) {
+           vm.warp(block.timestamp + 25000);
+           stageRaise.openProjectForMilestoneVotes(1);
+           
+           vm.prank(TRYNAX);
+           stageRaise.takeAVoteForMilestoneStageIncrease(1, false);
+           
+           vm.warp(block.timestamp + 300);
+           stageRaise.finalizeVotingProcess(1);
+       }
+       
+       vm.prank(TRYNAX);
+       vm.expectRevert(StageRaise__RefundIsNotAllowed.selector);
+       stageRaise.requestRefund(1);
+   }
+
+   function testFinalizeVotingWhenNotOpen() external {
+       vm.expectRevert(StageRaise__ProjectIsNotOpenForMilestoneVotingProcess.selector);
+       stageRaise.finalizeVotingProcess(1);
    }
 
    // Testing Events 
@@ -906,8 +949,7 @@ contract StageRaiseTest is Test{
    function testRefundRequestedEvent() external {
        vm.prank(TRYNAX);
        stageRaise.fundProject{value: 1 ether}(1);
-       
-       // Fail 3 milestones
+
        for (uint256 i = 0; i < 3; i++) {
            vm.warp(block.timestamp + 25000);
            stageRaise.openProjectForMilestoneVotes(1);
@@ -929,14 +971,8 @@ contract StageRaiseTest is Test{
 
 
    receive() external payable {
+
    }
-
-   
-
-   
-
-   
-
 
 
 }
