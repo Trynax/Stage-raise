@@ -463,7 +463,7 @@ contract StageRaise {
         project.contributorsToAmountFunded[msg.sender] = 0;
         project.projectBalance -= amountToRefund;
 
-        (bool success, ) = msg.sender.call{value: amountToRefund}("");
+        (bool success, ) = payable(msg.sender).call{value: amountToRefund}("");
         if (!success) {
             revert StageRaise__ETHTransferFailed();
         }
