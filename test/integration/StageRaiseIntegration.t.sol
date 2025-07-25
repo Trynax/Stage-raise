@@ -213,7 +213,104 @@ contract StageRaiseIntegrationTest is Test {
     
     console.log("Project went through complete lifecycle: creation -> funding -> milestones -> failures -> refunds");
 }
- 
+
+
+function testCompleteProjectLifecycleForNonMilestoneProject() public {
+   
+        vm.startPrank(PROJECT_OWNER);
+        stageRaise.createProject(
+            StageRaise.CreateProjectParams({
+                name: "Simple Crowdfund",
+                description: "Simple crowdfunding without milestones",
+                targetAmount: 5 ether,
+                deadline: block.timestamp + PROJECT_DEADLINE,
+                milestoneCount: 0,
+                milestoneBased: false,
+                timeForMileStoneVotingProcess: VOTING_TIME,
+                minFundingUSD: MIN_FUNDING_USD,
+                maxFundingUSD: MAX_FUNDING_USD
+            })
+        );
+        vm.stopPrank();
+        
+        uint256 projectId = 1;
+   
+        vm.prank(FUNDER_1);
+        stageRaise.fundProject{value: 2 ether}(projectId);
+        
+        vm.prank(FUNDER_2);
+        stageRaise.fundProject{value: 1.5 ether}(projectId);
+
+        vm.warp(block.timestamp + PROJECT_DEADLINE + 1);
+        
+
+        vm.startPrank(PROJECT_OWNER);
+        uint256 withdrawableAmount = stageRaise.getAmountWithdrawableForAProject(projectId);
+        assertEq(withdrawableAmount, 3.5 ether);
+        
+        stageRaise.withdrawFunds(withdrawableAmount, projectId, payable(PROJECT_OWNER));
+        vm.stopPrank();
+        
+       
+        assertEq(stageRaise.getProjectBalance(projectId), 0);
+        assertEq(stageRaise.getProjectAmountWithdrawn(projectId), 3.5 ether);
+        
+        console.log("Non-milestone project lifecycle completed successfully!");
+    }
+    
+    function testMultipleProjectsInteraction() public {
+    
+        vm.startPrank(PROJECT_OWNER);
+        stageRaise.createProject(
+            StageRaise.CreateProjectParams({
+                name: "Project Alpha",
+                description: "First project",
+                targetAmount: 5 ether,
+                deadline: block.timestamp + PROJECT_DEADLINE,
+                milestoneCount: 3,
+                milestoneBased: true,
+                timeForMileStoneVotingProcess: VOTING_TIME,
+                minFundingUSD: MIN_FUNDING_USD,
+                maxFundingUSD: MAX_FUNDING_USD
+            })
+        );
+        vm.stopPrank();
+        
+        vm.startPrank(FUNDER_1);
+        stageRaise.createProject(
+            StageRaise.CreateProjectParams({
+                name: "Project Beta",
+                description: "Second project",
+                targetAmount: 3 ether,
+                deadline: block.timestamp + PROJECT_DEADLINE,
+                milestoneCount: 0,
+                milestoneBased: false,
+                timeForMileStoneVotingProcess: VOTING_TIME,
+                minFundingUSD: MIN_FUNDING_USD,
+                maxFundingUSD: MAX_FUNDING_USD
+            })
+        );
+        vm.stopPrank();
+        
+   
+        vm.prank(FUNDER_2);
+        stageRaise.fundProject{value: 2 ether}(1);
+        
+        vm.prank(FUNDER_3);
+        stageRaise.fundProject{value: 1 ether}(2); 
+        
+        vm.prank(PROJECT_OWNER);
+        stageRaise.fundProject{value: 1 ether}(2);
+        
+
+        assertEq(stageRaise.getProjectCount(), 2);
+        assertEq(stageRaise.getProjectBasicInfo(1).raisedAmount, 2 ether);
+        assertEq(stageRaise.getProjectBasicInfo(2).raisedAmount, 2 ether);
+        
+        console.log("Multiple projects interaction test completed!");
+    }
+    
+    
 }
     
 
