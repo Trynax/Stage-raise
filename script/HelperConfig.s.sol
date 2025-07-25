@@ -25,15 +25,11 @@ contract HelperConfig is Script {
     }
 
     function getSepoliaEthConfig() public pure returns (NetworkConfig memory) {
-        return NetworkConfig({
-            ethUsdPriceFeed: 0x5fb1616F78dA7aFC9FF79e0371741a747D2a7F22
-        });
+        return NetworkConfig({ethUsdPriceFeed: 0x5fb1616F78dA7aFC9FF79e0371741a747D2a7F22});
     }
 
     function getMainnetEthConfig() public pure returns (NetworkConfig memory) {
-        return NetworkConfig({
-            ethUsdPriceFeed:0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46
-        });
+        return NetworkConfig({ethUsdPriceFeed: 0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46});
     }
 
     function getOrCreateAnvilEthConfig() public returns (NetworkConfig memory) {
@@ -42,14 +38,9 @@ contract HelperConfig is Script {
         }
 
         vm.startBroadcast();
-        MockV3Aggregator mockPriceFeed = new MockV3Aggregator(
-            DECIMALS,
-            INITIAL_PRICE
-        );
+        MockV3Aggregator mockPriceFeed = new MockV3Aggregator(DECIMALS, INITIAL_PRICE);
         vm.stopBroadcast();
 
-        return NetworkConfig({
-            ethUsdPriceFeed: address(mockPriceFeed)
-        });
+        return NetworkConfig({ethUsdPriceFeed: address(mockPriceFeed)});
     }
 }

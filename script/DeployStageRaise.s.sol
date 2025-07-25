@@ -5,15 +5,14 @@ import {Script} from "forge-std/Script.sol";
 import {StageRaise} from "../src/StageRaise.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 
-contract DeployStageRaise is Script{
-
-    function run () external returns (StageRaise, HelperConfig){
+contract DeployStageRaise is Script {
+    function run() external returns (StageRaise, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig();
         address ethUsdPriceFeed = helperConfig.activeNetworkConfig();
         vm.startBroadcast();
         StageRaise stageRaise = new StageRaise(ethUsdPriceFeed);
-        vm.stopBroadcast(); 
+        vm.stopBroadcast();
 
-        return (stageRaise, helperConfig);     
+        return (stageRaise, helperConfig);
     }
 }
