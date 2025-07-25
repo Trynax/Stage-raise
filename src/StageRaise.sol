@@ -629,4 +629,10 @@ contract StageRaise {
     ) public view returns (uint256) {
         return projectById[_projectId].contributorsToAmountFunded[_contributor];
     }
+
+    function getProjectVotingEndTime(
+        uint256 _projectId
+    ) public view returns (uint256) {
+        return projectById[_projectId].milestone.timeForTheVotingProcessToElapsed;
+    }
 }

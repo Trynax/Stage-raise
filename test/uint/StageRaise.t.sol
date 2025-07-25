@@ -780,15 +780,18 @@ contract StageRaiseTest is Test{
        vm.prank(TRYNAX);
        stageRaise.fundProject{value: 1 ether}(1);
        
+       uint256 currentTime = block.timestamp;
 
        for (uint256 i = 0; i < 3; i++) {
-           vm.warp(block.timestamp + 25000);
+           currentTime += 25000;
+           vm.warp(currentTime);
            stageRaise.openProjectForMilestoneVotes(1);
            
            vm.prank(TRYNAX);
            stageRaise.takeAVoteForMilestoneStageIncrease(1, false);
            
-           vm.warp(block.timestamp + 3000);
+           currentTime += 3000;
+           vm.warp(currentTime);
            stageRaise.finalizeVotingProcess(1);
        }
        
@@ -826,15 +829,18 @@ contract StageRaiseTest is Test{
        vm.prank(TRYNAX);
        stageRaise.fundProject{value: 1 ether}(1);
        
+       uint256 currentTime = block.timestamp;
      
        for (uint256 i = 0; i < 3; i++) {
-           vm.warp(block.timestamp + 25000);
+           currentTime += 25000;
+           vm.warp(currentTime);
            stageRaise.openProjectForMilestoneVotes(1);
            
            vm.prank(TRYNAX);
            stageRaise.takeAVoteForMilestoneStageIncrease(1, false);
            
-           vm.warp(block.timestamp + 300);
+           currentTime += 300;
+           vm.warp(currentTime);
            stageRaise.finalizeVotingProcess(1);
        }
        
@@ -848,15 +854,18 @@ contract StageRaiseTest is Test{
        vm.prank(TRYNAX);
        stageRaise.fundProject{value: 1 ether}(1);
        
+       uint256 currentTime = block.timestamp;
        
        for (uint256 i = 0; i < 2; i++) {
-           vm.warp(block.timestamp + 25000);
+           currentTime += 25000;
+           vm.warp(currentTime);
            stageRaise.openProjectForMilestoneVotes(1);
            
            vm.prank(TRYNAX);
            stageRaise.takeAVoteForMilestoneStageIncrease(1, false);
            
-           vm.warp(block.timestamp + 300);
+           currentTime += 300;
+           vm.warp(currentTime);
            stageRaise.finalizeVotingProcess(1);
        }
        
@@ -950,14 +959,18 @@ contract StageRaiseTest is Test{
        vm.prank(TRYNAX);
        stageRaise.fundProject{value: 1 ether}(1);
 
+       uint256 currentTime = block.timestamp;
+
        for (uint256 i = 0; i < 3; i++) {
-           vm.warp(block.timestamp + 25000);
+           currentTime += 25000;
+           vm.warp(currentTime);
            stageRaise.openProjectForMilestoneVotes(1);
            
            vm.prank(TRYNAX);
            stageRaise.takeAVoteForMilestoneStageIncrease(1, false);
            
-           vm.warp(block.timestamp + 300);
+           currentTime += 300;
+           vm.warp(currentTime);
            stageRaise.finalizeVotingProcess(1);
        }
        
