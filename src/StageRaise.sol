@@ -536,9 +536,7 @@ contract StageRaise {
             _funder
         ];
 
-        votingPower =
-            (amountFundedByTheFunder * 100) /
-            project.basics.raisedAmount;
+        votingPower = (amountFundedByTheFunder * 1e18) / project.basics.raisedAmount;
 
         return votingPower;
     }

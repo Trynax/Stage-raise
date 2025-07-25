@@ -118,9 +118,12 @@ contract StageRaiseIntegrationTest is Test {
     uint256 funder2Power = stageRaise.calculateFunderVotingPower(FUNDER_2, projectId);
     uint256 funder3Power = stageRaise.calculateFunderVotingPower(FUNDER_3, projectId);
     
-    assertEq(funder1Power, 44);
-    assertEq(funder2Power, 33);
-    assertEq(funder3Power, 22);
+    
+    assertEq(funder1Power, 444444444444444444);
+
+    assertEq(funder2Power, 333333333333333333);
+
+    assertEq(funder3Power, 222222222222222222);
     
     uint256 totalYesVotes = stageRaise.getProjectYesVotes(projectId);
     assertEq(totalYesVotes, funder1Power + funder2Power + funder3Power);
