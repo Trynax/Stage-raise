@@ -261,7 +261,10 @@ contract StageRaise {
         if (fundingAmountUSD < projectById[_projectId].basics.minFundingUSD) {
             revert StageRaise__FundingAmountBelowMinimum();
         }
-        if (fundingAmountUSD > projectById[_projectId].basics.maxFundingUSD) {
+        
+     
+        uint256 funderCurrentContribution = getUSDValue(projectById[_projectId].contributorsToAmountFunded[msg.sender]);
+        if ((fundingAmountUSD + funderCurrentContribution) > projectById[_projectId].basics.maxFundingUSD) {
             revert StageRaise__FundingAmountAboveMaximum();
         }
 
