@@ -38,16 +38,16 @@ error StageRaise__RefundIsNotAllowed();
 error StageRaise__ProjectHasFailedTooManyMilestones();
 
 contract StageRaiseTest is Test {
-    event ProjectCreated(string indexed name, uint256 indexed targetAmount, uint256 indexed deadline);
-    event ProjectFunded(string indexed name, uint256 indexed AmoutFunded, address indexed Funder);
-    event WithDrawnFromProject(string indexed name, uint256 indexed amountWithdrawn, address indexed Withdrawer);
+    event ProjectCreated(string indexed name, uint88 indexed targetAmount, uint64 indexed deadline);
+    event ProjectFunded(string indexed name, uint88 indexed AmoutFunded, address indexed Funder);
+    event WithDrawnFromProject(string indexed name, uint88 indexed amountWithdrawn, address indexed Withdrawer);
 
-    event ProjectOpenedForVoting(string indexed name, uint256 indexed timeOpenForVoting, uint256 indexed projectId);
+    event ProjectOpenedForVoting(string indexed name, uint64 indexed timeOpenForVoting, uint32 indexed projectId);
 
-    event ProjectVotingProcessFinalized(string indexed name, uint256 indexed projectById, bool indexed voteResult);
+    event ProjectVotingProcessFinalized(string indexed name, uint32 indexed projectById, bool indexed voteResult);
 
     event RefundRequested(
-        string indexed projectName, uint256 indexed projectId, address indexed funder, uint256 refundAmount
+        string indexed projectName, uint32 indexed projectId, address indexed funder, uint88 refundAmount
     );
 
     StageRaise stageRaise;
@@ -64,7 +64,7 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise",
                 description: "decentralized crowdfunding",
                 targetAmount: 10 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -77,7 +77,7 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 2",
                 description: "decentralized crowdfunding 2",
                 targetAmount: 3 ether,
-                deadline: block.timestamp + 30000,
+                deadline: uint64(block.timestamp + 30000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -90,7 +90,7 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 3",
                 description: "decentralized crowdfunding 3",
                 targetAmount: 2 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -104,7 +104,7 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 4",
                 description: "decentralized crowdfunding 4",
                 targetAmount: 3 ether,
-                deadline: block.timestamp + 30000,
+                deadline: uint64(block.timestamp + 30000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -117,7 +117,7 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 5",
                 description: "decentralized crowdfunding 5",
                 targetAmount: 3 ether,
-                deadline: block.timestamp + 30000,
+                deadline: uint64(block.timestamp + 30000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -142,7 +142,7 @@ contract StageRaiseTest is Test {
           console.log(address(stageRaise).balance, raisedAmount);
 
         assert(raisedAmount == 1 ether);
-        assert(address(stageRaise).balance == 1 ether + 1);
+        assert(address(stageRaise).balance == 1 ether);
 
       
     }
@@ -154,7 +154,7 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 6",
                 description: "decentralized crowdfunding 6",
                 targetAmount: 2 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -309,7 +309,7 @@ contract StageRaiseTest is Test {
                 name: "Non-Milestone Project",
                 description: "No milestones",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -340,7 +340,7 @@ contract StageRaiseTest is Test {
                 name: "Withdrawal Test",
                 description: "Test amount withdrawn",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -396,7 +396,7 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 6",
                 description: "decentralized crowdfunding 6",
                 targetAmount: 2 ether,
-                deadline: block.timestamp,
+                deadline: uint64(block.timestamp),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -414,7 +414,7 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 7",
                 description: "decentralized crowdfunding 7",
                 targetAmount: 0,
-                deadline: block.timestamp + 200,
+                deadline: uint64(block.timestamp + 200),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -480,7 +480,7 @@ contract StageRaiseTest is Test {
                 name: "Credula",
                 description: "Testing.... ",
                 targetAmount: 10 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -503,7 +503,7 @@ contract StageRaiseTest is Test {
                 name: "Test Project",
                 description: "Test description",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -527,7 +527,7 @@ contract StageRaiseTest is Test {
                 name: "Milestone Test",
                 description: "Test milestone project",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 4,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -570,7 +570,7 @@ contract StageRaiseTest is Test {
                 name: "Test Project",
                 description: "Test description",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 3,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 0,
@@ -627,7 +627,7 @@ contract StageRaiseTest is Test {
                 name: "Active Project",
                 description: "Still active for funding",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -650,7 +650,7 @@ contract StageRaiseTest is Test {
                 name: "Final Milestone Test",
                 description: "Test final milestone",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 2,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -679,7 +679,7 @@ contract StageRaiseTest is Test {
                 name: "Non-Milestone Project",
                 description: "No milestones",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -749,7 +749,7 @@ contract StageRaiseTest is Test {
                 name: "Non-Milestone Project",
                 description: "No milestones",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + 20000,
+                deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -826,13 +826,13 @@ contract StageRaiseTest is Test {
         uint256 deadline = 4000;
 
         vm.expectEmit(true, true, true, false);
-        emit ProjectCreated("Credula", 10 ether, deadline);
+        emit ProjectCreated("Credula", 10 ether, uint64(deadline));
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Credula",
                 description: "decentralized crowdfunding",
                 targetAmount: 10 ether,
-                deadline: deadline,
+                deadline: uint64(deadline),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -862,7 +862,7 @@ contract StageRaiseTest is Test {
         stageRaise.fundProject{value: 1 ether}(1);
         vm.warp(block.timestamp + 200000);
         vm.expectEmit(true, true, true, false);
-        emit ProjectOpenedForVoting("Stage Raise", block.timestamp + 200, 1);
+        emit ProjectOpenedForVoting("Stage Raise", uint64(block.timestamp + 200), 1);
         stageRaise.openProjectForMilestoneVotes(1);
     }
 

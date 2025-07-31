@@ -16,20 +16,20 @@ contract StageRaiseIntegrationTest is Test {
     address public FUNDER_3 = makeAddr("FUNDER_3");
 
     uint256 constant STARTING_BALANCE = 100 ether;
-    uint256 constant PROJECT_TARGET = 10 ether;
-    uint256 constant PROJECT_DEADLINE = 30 days;
-    uint256 constant MILESTONE_COUNT = 5;
-    uint256 constant VOTING_TIME = 7 days;
-    uint256 constant MIN_FUNDING_USD = 1000e8; // $1000
-    uint256 constant MAX_FUNDING_USD = 50000e8; // $50000
+    uint88 constant PROJECT_TARGET = 10 ether;
+    uint64 constant PROJECT_DEADLINE = 30 days;
+    uint8 constant MILESTONE_COUNT = 5;
+    uint64 constant VOTING_TIME = 7 days;
+    uint96 constant MIN_FUNDING_USD = 1000e8; // $1000
+    uint96 constant MAX_FUNDING_USD = 50000e8; // $50000
 
-    event ProjectCreated(string indexed name, uint256 indexed targetAmount, uint256 indexed deadline);
-    event ProjectFunded(string indexed name, uint256 indexed amountFunded, address indexed funder);
-    event WithDrawnFromProject(string indexed name, uint256 indexed amountWithdrawn, address indexed Withdrawer);
-    event ProjectOpenedForVoting(string indexed name, uint256 indexed timeOpenForVoting, uint256 indexed projectId);
-    event ProjectVotingProcessFinalized(string indexed name, uint256 indexed projectById, bool indexed voteResult);
+    event ProjectCreated(string indexed name, uint88 indexed targetAmount, uint64 indexed deadline);
+    event ProjectFunded(string indexed name, uint88 indexed amountFunded, address indexed funder);
+    event WithDrawnFromProject(string indexed name, uint88 indexed amountWithdrawn, address indexed Withdrawer);
+    event ProjectOpenedForVoting(string indexed name, uint64 indexed timeOpenForVoting, uint32 indexed projectId);
+    event ProjectVotingProcessFinalized(string indexed name, uint32 indexed projectById, bool indexed voteResult);
     event RefundRequested(
-        string indexed projectName, uint256 indexed projectId, address indexed funder, uint256 refundAmount
+        string indexed projectName, uint32 indexed projectId, address indexed funder, uint88 refundAmount
     );
 
     function setUp() public {
@@ -49,7 +49,7 @@ contract StageRaiseIntegrationTest is Test {
                 name: "Decentralized Social Media",
                 description: "Building the future of social media",
                 targetAmount: PROJECT_TARGET,
-                deadline: block.timestamp + PROJECT_DEADLINE,
+                deadline: uint64(block.timestamp) + PROJECT_DEADLINE,
                 milestoneCount: MILESTONE_COUNT,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: VOTING_TIME,
@@ -59,7 +59,7 @@ contract StageRaiseIntegrationTest is Test {
         );
         vm.stopPrank();
 
-        uint256 projectId = 1;
+        uint32 projectId = 1;
 
         StageRaise.ProjectInfo memory projectInfo = stageRaise.getProjectBasicInfo(projectId);
         assertEq(projectInfo.name, "Decentralized Social Media");
@@ -88,7 +88,7 @@ contract StageRaiseIntegrationTest is Test {
 
         // Testing
         vm.startPrank(PROJECT_OWNER);
-        uint256 withdrawableAmount = stageRaise.getAmountWithdrawableForAProject(projectId);
+        uint88 withdrawableAmount = stageRaise.getAmountWithdrawableForAProject(projectId);
         assertEq(withdrawableAmount, 1.8 ether);
 
         stageRaise.withdrawFunds(withdrawableAmount, projectId, payable(PROJECT_OWNER));
@@ -112,9 +112,9 @@ contract StageRaiseIntegrationTest is Test {
         vm.prank(FUNDER_3);
         stageRaise.takeAVoteForMilestoneStageIncrease(projectId, true);
 
-        uint256 funder1Power = stageRaise.calculateFunderVotingPower(FUNDER_1, projectId);
-        uint256 funder2Power = stageRaise.calculateFunderVotingPower(FUNDER_2, projectId);
-        uint256 funder3Power = stageRaise.calculateFunderVotingPower(FUNDER_3, projectId);
+        uint88 funder1Power = stageRaise.calculateFunderVotingPower(FUNDER_1, projectId);
+        uint88 funder2Power = stageRaise.calculateFunderVotingPower(FUNDER_2, projectId);
+        uint88 funder3Power = stageRaise.calculateFunderVotingPower(FUNDER_3, projectId);
 
         assertEq(funder1Power, 444444444444444444);
 
@@ -122,7 +122,7 @@ contract StageRaiseIntegrationTest is Test {
 
         assertEq(funder3Power, 222222222222222222);
 
-        uint256 totalYesVotes = stageRaise.getProjectYesVotes(projectId);
+        uint88 totalYesVotes = stageRaise.getProjectYesVotes(projectId);
         assertEq(totalYesVotes, funder1Power + funder2Power + funder3Power);
 
         vm.warp(block.timestamp + VOTING_TIME + 100);
@@ -133,7 +133,7 @@ contract StageRaiseIntegrationTest is Test {
         assertEq(stageRaise.getProjectFailedMilestoneStage(projectId), 0);
 
         vm.startPrank(PROJECT_OWNER);
-        uint256 newWithdrawableAmount = stageRaise.getAmountWithdrawableForAProject(projectId);
+        uint88 newWithdrawableAmount = stageRaise.getAmountWithdrawableForAProject(projectId);
         assertEq(newWithdrawableAmount, 1.8 ether); // 1/5
 
         stageRaise.withdrawFunds(newWithdrawableAmount, projectId, payable(PROJECT_OWNER));
@@ -145,7 +145,7 @@ contract StageRaiseIntegrationTest is Test {
         stageRaise.openProjectForMilestoneVotes(projectId);
         vm.stopPrank();
 
-        uint256 votingEndTime = stageRaise.getProjectVotingEndTime(projectId);
+        uint64 votingEndTime = stageRaise.getProjectVotingEndTime(projectId);
 
         vm.prank(FUNDER_1);
         stageRaise.takeAVoteForMilestoneStageIncrease(projectId, false);
@@ -169,7 +169,7 @@ contract StageRaiseIntegrationTest is Test {
             stageRaise.openProjectForMilestoneVotes(projectId);
             vm.stopPrank();
 
-            uint256 votingEndTime = stageRaise.getProjectVotingEndTime(projectId);
+            uint64 loopVotingEndTime = stageRaise.getProjectVotingEndTime(projectId);
 
             vm.prank(FUNDER_1);
             stageRaise.takeAVoteForMilestoneStageIncrease(projectId, false);
@@ -177,7 +177,7 @@ contract StageRaiseIntegrationTest is Test {
             vm.prank(FUNDER_2);
             stageRaise.takeAVoteForMilestoneStageIncrease(projectId, false);
 
-            vm.warp(votingEndTime + 100);
+            vm.warp(loopVotingEndTime + 100);
             stageRaise.finalizeVotingProcess(projectId);
         }
 
@@ -212,7 +212,7 @@ contract StageRaiseIntegrationTest is Test {
                 name: "Simple Crowdfund",
                 description: "Simple crowdfunding without milestones",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + PROJECT_DEADLINE,
+                deadline: uint64(block.timestamp) + PROJECT_DEADLINE,
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: VOTING_TIME,
@@ -222,7 +222,7 @@ contract StageRaiseIntegrationTest is Test {
         );
         vm.stopPrank();
 
-        uint256 projectId = 1;
+        uint32 projectId = 1;
 
         vm.prank(FUNDER_1);
         stageRaise.fundProject{value: 2 ether}(projectId);
@@ -233,7 +233,7 @@ contract StageRaiseIntegrationTest is Test {
         vm.warp(block.timestamp + PROJECT_DEADLINE + 1);
 
         vm.startPrank(PROJECT_OWNER);
-        uint256 withdrawableAmount = stageRaise.getAmountWithdrawableForAProject(projectId);
+        uint88 withdrawableAmount = stageRaise.getAmountWithdrawableForAProject(projectId);
         assertEq(withdrawableAmount, 3.5 ether);
 
         stageRaise.withdrawFunds(withdrawableAmount, projectId, payable(PROJECT_OWNER));
@@ -252,7 +252,7 @@ contract StageRaiseIntegrationTest is Test {
                 name: "Project Alpha",
                 description: "First project",
                 targetAmount: 5 ether,
-                deadline: block.timestamp + PROJECT_DEADLINE,
+                deadline: uint64(block.timestamp) + PROJECT_DEADLINE,
                 milestoneCount: 3,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: VOTING_TIME,
@@ -268,7 +268,7 @@ contract StageRaiseIntegrationTest is Test {
                 name: "Project Beta",
                 description: "Second project",
                 targetAmount: 3 ether,
-                deadline: block.timestamp + PROJECT_DEADLINE,
+                deadline: uint64(block.timestamp) + PROJECT_DEADLINE,
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: VOTING_TIME,
