@@ -60,90 +60,104 @@ contract StageRaise {
     //Types
 
     struct ProjectBasics {
-        address owner;
-        uint256 projectId;
+        address owner; //20 bytes
+        uint88 targetAmount; // 11 bytes
+        bool isActive; // 1 byte
+        // 32 bytes
+        uint88 raisedAmount; // 11 bytes
+        uint64 deadline; // 8 bytes
+        uint24 totalContributors; // 3 bytes
+        uint32 projectId; // 4 bytes
+        // 26 bytes
+        uint96 minFundingUSD; //12 bytes Minimum funding amount in USD (8 decimals)
+        uint96 maxFundingUSD; //12 bytes Maximum funding amount in USD (8 decimals)
+        //24 bytes
         string name;
         string description;
-        uint256 targetAmount;
-        uint256 raisedAmount;
-        uint256 deadline;
-        bool isActive;
-        uint256 totalContributors;
-        uint256 minFundingUSD; // Minimum funding amount in USD (8 decimals)
-        uint256 maxFundingUSD; // Maximum funding amount in USD (8 decimals)
     }
 
     struct ProjectMilestone {
-        uint256 milestoneCount;
-        bool milestoneBased;
-        uint256 milestoneStage;
-        bool openForMilestoneVotingStage;
-        uint256 votesForYes;
-        uint256 votesForNo;
-        uint256 timeForMilestoneVotingProcess;
-        uint256 timeForTheVotingProcessToElapsed;
-        uint256 failedMilestoneStage;
+        uint8 milestoneCount; // 1 bytes
+        bool milestoneBased; // 1 byte
+        uint8 milestoneStage; // 1 byte
+        bool openForMilestoneVotingStage; // 1 byte
+        uint8 failedMilestoneStage; // 1 bytes
+        uint88 votesForYes; // 11 bytes
+        uint64 timeForMilestoneVotingProcess;    // 8 bytes
+        uint64 timeForTheVotingProcessToElapsed; // 8 bytes
+        // 32 bytes
+        
+        uint88 votesForNo; // 11 bytes
+        
+
+
+        
     }
 
     struct Project {
-        ProjectBasics basics;
-        ProjectMilestone milestone;
-        uint256 projectBalance;
-        uint256 amountWithdrawn;
-        mapping(address => uint256) contributorsToAmountFunded;
+        ProjectBasics basics; // 5 slots
+        ProjectMilestone milestone; // 2 slots
+        uint88 projectBalance;
+        // 11 bytes
+        uint88 amountWithdrawn;
+        // 11 bytes
+        mapping(address => uint128) contributorsToAmountFunded;
         mapping(address => bool) hasFunderVoted;
         address[] voters;
     }
 
     struct ProjectInfo {
-        address owner;
+        address owner; // 20 bytes
+        uint88 targetAmount; //11 bytes
+        bool isActive; // 1 byte
+        // 32 bytes
+        uint88 raisedAmount; // 11 bytes
+        uint64 deadline; // 8 bytes
+        bool milestoneBased; // 1 byte
+        uint96 minFundingUSD; // 12 bytes USD (8 decimals)
+        // 32 bytes 
+        uint24 totalContributors; // 3 bytes
+        uint96 maxFundingUSD; // 12 bytes USD (8 decimals)
+        uint8 milestoneCount; // 1 byte
+        // 16 bytes
         string name;
         string description;
-        uint256 targetAmount;
-        uint256 raisedAmount;
-        uint256 deadline;
-        bool isActive;
-        uint256 totalContributors;
-        uint256 minFundingUSD;
-        uint256 maxFundingUSD;
-        uint256 milestoneCount;
-        bool milestoneBased;
     }
 
     struct CreateProjectParams {
+        uint88 targetAmount; // 11 bytes
+        uint64 deadline; // 8 bytes
+        uint8 milestoneCount; // 1 byte
+        bool milestoneBased; // 1 byte
+        uint64 timeForMileStoneVotingProcess; // 8 bytes
+        uint96 minFundingUSD; // 12 bytes USD (8 decimals)
+        uint96 maxFundingUSD; // 12 bytes USD (8 decimals)
         string name;
         string description;
-        uint256 targetAmount;
-        uint256 deadline;
-        uint256 milestoneCount;
-        bool milestoneBased;
-        uint256 timeForMileStoneVotingProcess;
-        uint256 minFundingUSD; // USD (8 decimals)
-        uint256 maxFundingUSD;
     }
 
     //State Variables
-    mapping(uint256 => Project) public projectById;
-    uint256 private s_projectCount;
+    mapping(uint32 => Project) public projectById;
+    uint32 private s_projectCount;
     AggregatorV3Interface public s_aggregator;
 
     //Events
 
-    event ProjectCreated(string indexed name, uint256 indexed targetAmount, uint256 indexed deadline);
-    event ProjectFunded(string indexed name, uint256 indexed amountFunded, address indexed funder);
+    event ProjectCreated(string indexed name, uint88 indexed targetAmount, uint64 indexed deadline);
+    event ProjectFunded(string indexed name, uint88 indexed amountFunded, address indexed funder);
 
-    event WithDrawnFromProject(string indexed name, uint256 indexed amountWithdrawn, address indexed Withdrawer);
+    event WithDrawnFromProject(string indexed name, uint88 indexed amountWithdrawn, address indexed Withdrawer);
 
-    event ProjectOpenedForVoting(string indexed name, uint256 indexed timeOpenForVoting, uint256 indexed projectId);
+    event ProjectOpenedForVoting(string indexed name, uint64 indexed timeOpenForVoting, uint32 indexed projectId);
 
-    event ProjectVotingProcessFinalized(string indexed name, uint256 indexed projectById, bool indexed voteResult);
+    event ProjectVotingProcessFinalized(string indexed name, uint32 indexed projectById, bool indexed voteResult);
 
     event RefundRequested(
-        string indexed projectName, uint256 indexed projectId, address indexed funder, uint256 refundAmount
+        string indexed projectName, uint32 indexed projectId, address indexed funder, uint88 refundAmount
     );
     //Modifier
 
-    modifier onlyProjectOwner(uint256 _projectId) {
+    modifier onlyProjectOwner(uint32 _projectId) {
         if (projectById[_projectId].basics.owner == address(0)) {
             revert StageRaise__ProjectNotFound();
         }
@@ -154,7 +168,7 @@ contract StageRaise {
         _;
     }
 
-    modifier onlyProjectFunder(uint256 _projectId) {
+    modifier onlyProjectFunder(uint32 _projectId) {
         if (projectById[_projectId].contributorsToAmountFunded[msg.sender] == 0) {
             revert StageRaise__AddressHasNotFundTheProject();
         }
@@ -220,7 +234,7 @@ contract StageRaise {
         emit ProjectCreated(params.name, params.targetAmount, params.deadline);
     }
 
-    function fundProject(uint256 _projectId) external payable {
+    function fundProject(uint32 _projectId) external payable {
         if (msg.value <= 0) {
             revert StageRaise__AmountToFundMustBeGreaterThanZero();
         }
@@ -252,14 +266,14 @@ contract StageRaise {
         if (project.contributorsToAmountFunded[msg.sender] == 0) {
             project.basics.totalContributors++;
         }
-        project.basics.raisedAmount += msg.value;
-        project.projectBalance += msg.value;
-        project.contributorsToAmountFunded[msg.sender] += msg.value;
+        project.basics.raisedAmount += uint88(msg.value);
+        project.projectBalance += uint88(msg.value);
+        project.contributorsToAmountFunded[msg.sender] += uint128(msg.value);
 
-        emit ProjectFunded(project.basics.name, msg.value, msg.sender);
+        emit ProjectFunded(project.basics.name, uint88(msg.value), msg.sender);
     }
 
-    function openProjectForMilestoneVotes(uint256 _projectId) external onlyProjectOwner(_projectId) {
+    function openProjectForMilestoneVotes(uint32 _projectId) external onlyProjectOwner(_projectId) {
         Project storage project = projectById[_projectId];
 
         if (!project.milestone.milestoneBased) {
@@ -278,11 +292,11 @@ contract StageRaise {
         }
         project.milestone.openForMilestoneVotingStage = true;
         project.milestone.timeForTheVotingProcessToElapsed =
-            project.milestone.timeForMilestoneVotingProcess + block.timestamp;
+            project.milestone.timeForMilestoneVotingProcess + uint64(block.timestamp);
         emit ProjectOpenedForVoting(project.basics.name, project.milestone.timeForTheVotingProcessToElapsed, _projectId);
     }
 
-    function finalizeVotingProcess(uint256 _projectId) external {
+    function finalizeVotingProcess(uint32 _projectId) external {
         Project storage project = projectById[_projectId];
         if (!(block.timestamp >= project.milestone.timeForTheVotingProcessToElapsed)) {
             revert StageRaise__TimeHasNotPassedForTheVotingProcess();
@@ -305,7 +319,7 @@ contract StageRaise {
         emit ProjectVotingProcessFinalized(project.basics.name, _projectId, voteResult);
     }
 
-    function withdrawFunds(uint256 _amount, uint256 _projectId, address payable _to)
+    function withdrawFunds(uint88 _amount, uint32 _projectId, address payable _to)
         external
         onlyProjectOwner(_projectId)
     {
@@ -334,7 +348,7 @@ contract StageRaise {
         emit WithDrawnFromProject(projectById[_projectId].basics.name, _amount, msg.sender);
     }
 
-    function takeAVoteForMilestoneStageIncrease(uint256 _projectId, bool _vote)
+    function takeAVoteForMilestoneStageIncrease(uint32 _projectId, bool _vote)
         external
         onlyProjectFunder(_projectId)
     {
@@ -359,7 +373,7 @@ contract StageRaise {
         project.hasFunderVoted[msg.sender] = true;
     }
 
-    function resetVotersMapping(uint256 _projectId) private {
+    function resetVotersMapping(uint32 _projectId) private {
         Project storage project = projectById[_projectId];
 
         for (uint256 i = 0; i < project.voters.length; i++) {
@@ -369,7 +383,7 @@ contract StageRaise {
         delete project.voters;
     }
 
-    function requestRefund(uint256 _projectId) external onlyProjectFunder(_projectId) {
+    function requestRefund(uint32 _projectId) external onlyProjectFunder(_projectId) {
         Project storage project = projectById[_projectId];
 
         if (project.basics.owner == address(0)) {
@@ -383,14 +397,14 @@ contract StageRaise {
             revert StageRaise__RefundIsNotAllowed();
         }
 
-        uint256 funderContribution = project.contributorsToAmountFunded[msg.sender];
+        uint128 funderContribution = project.contributorsToAmountFunded[msg.sender];
 
         if (funderContribution == 0) {
             revert StageRaise__AmountToWithdrawMustBeGreaterThanZero();
         }
 
         uint256 remainingFundsForRefund = project.basics.raisedAmount - project.amountWithdrawn;
-        uint256 amountToRefund = (funderContribution * remainingFundsForRefund) / project.basics.raisedAmount;
+        uint88 amountToRefund = uint88((funderContribution * remainingFundsForRefund) / project.basics.raisedAmount);
 
         if (amountToRefund <= 0) {
             revert StageRaise__AmountToWithdrawMustBeGreaterThanZero();
@@ -409,7 +423,7 @@ contract StageRaise {
 
     // view & pure functions
 
-    function getProjectBasicInfo(uint256 _projectId) public view returns (ProjectInfo memory) {
+    function getProjectBasicInfo(uint32 _projectId) public view returns (ProjectInfo memory) {
         Project storage p = projectById[_projectId];
 
         return ProjectInfo({
@@ -428,7 +442,7 @@ contract StageRaise {
         });
     }
 
-    function getAmountWithdrawableForAProject(uint256 _projectId) public view returns (uint256) {
+    function getAmountWithdrawableForAProject(uint32 _projectId) public view returns (uint88) {
         Project storage project = projectById[_projectId];
         if (project.basics.owner == address(0)) {
             return 0;
@@ -440,14 +454,14 @@ contract StageRaise {
 
         uint256 maxWithdrawable =
             (project.basics.raisedAmount * project.milestone.milestoneStage) / project.milestone.milestoneCount;
-        uint256 maxWithdrawableNow = maxWithdrawable - project.amountWithdrawn;
+        uint88 maxWithdrawableNow = uint88(maxWithdrawable - project.amountWithdrawn);
         return maxWithdrawableNow;
     }
 
-    function calculateFunderVotingPower(address _funder, uint256 _projectId)
+    function calculateFunderVotingPower(address _funder, uint32 _projectId)
         public
         view
-        returns (uint256 votingPower)
+        returns (uint88 votingPower)
     {
         Project storage project = projectById[_projectId];
 
@@ -458,38 +472,38 @@ contract StageRaise {
             revert StageRaise__AddressHasNotFundTheProject();
         }
 
-        uint256 amountFundedByTheFunder = project.contributorsToAmountFunded[_funder];
+        uint128 amountFundedByTheFunder = project.contributorsToAmountFunded[_funder];
 
-        votingPower = (amountFundedByTheFunder * 1e18) / project.basics.raisedAmount;
+        votingPower = uint88((amountFundedByTheFunder * 1e18) / project.basics.raisedAmount);
 
         return votingPower;
     }
 
-    function getProjectCount() public view returns (uint256) {
+    function getProjectCount() public view returns (uint32) {
         return s_projectCount;
     }
 
-    function getProjectBalance(uint256 _projectId) public view returns (uint256) {
+    function getProjectBalance(uint32 _projectId) public view returns (uint88) {
         return projectById[_projectId].projectBalance;
     }
 
-    function getProjectAmountWithdrawn(uint256 _projectId) public view returns (uint256) {
+    function getProjectAmountWithdrawn(uint32 _projectId) public view returns (uint88) {
         return projectById[_projectId].amountWithdrawn;
     }
 
-    function getProjectMilestoneStage(uint256 _projectId) public view returns (uint256) {
+    function getProjectMilestoneStage(uint32 _projectId) public view returns (uint8) {
         return projectById[_projectId].milestone.milestoneStage;
     }
 
-    function getProjectMileStoneVotingStatus(uint256 _projectId) public view returns (bool) {
+    function getProjectMileStoneVotingStatus(uint32 _projectId) public view returns (bool) {
         return projectById[_projectId].milestone.openForMilestoneVotingStage;
     }
 
-    function getProjectYesVotes(uint256 _projectId) public view returns (uint256) {
+    function getProjectYesVotes(uint32 _projectId) public view returns (uint88) {
         return projectById[_projectId].milestone.votesForYes;
     }
 
-    function getProjectNoVotes(uint256 _projectId) public view returns (uint256) {
+    function getProjectNoVotes(uint32 _projectId) public view returns (uint88) {
         return projectById[_projectId].milestone.votesForNo;
     }
 
@@ -515,23 +529,23 @@ contract StageRaise {
         return (_usdAmount * 1e18) / uint256(price);
     }
 
-    function getProjectMinFundingUSD(uint256 _projectId) public view returns (uint256) {
+    function getProjectMinFundingUSD(uint32 _projectId) public view returns (uint96) {
         return projectById[_projectId].basics.minFundingUSD;
     }
 
-    function getProjectMaxFundingUSD(uint256 _projectId) public view returns (uint256) {
+    function getProjectMaxFundingUSD(uint32 _projectId) public view returns (uint96) {
         return projectById[_projectId].basics.maxFundingUSD;
     }
 
-    function getProjectFailedMilestoneStage(uint256 _projectId) public view returns (uint256) {
+    function getProjectFailedMilestoneStage(uint32 _projectId) public view returns (uint8) {
         return projectById[_projectId].milestone.failedMilestoneStage;
     }
 
-    function getProjectContributorAmount(uint256 _projectId, address _contributor) public view returns (uint256) {
+    function getProjectContributorAmount(uint32 _projectId, address _contributor) public view returns (uint128) {
         return projectById[_projectId].contributorsToAmountFunded[_contributor];
     }
 
-    function getProjectVotingEndTime(uint256 _projectId) public view returns (uint256) {
+    function getProjectVotingEndTime(uint32 _projectId) public view returns (uint64) {
         return projectById[_projectId].milestone.timeForTheVotingProcessToElapsed;
     }
 }
