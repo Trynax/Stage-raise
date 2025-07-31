@@ -88,6 +88,7 @@ contract StageRaise {
         // 32 bytes
         
         uint88 votesForNo; // 11 bytes
+        uint8 votingRound; // 1 byte 
         
 
 
@@ -102,8 +103,7 @@ contract StageRaise {
         uint88 amountWithdrawn;
         // 11 bytes
         mapping(address => uint128) contributorsToAmountFunded;
-        mapping(address => bool) hasFunderVoted;
-        address[] voters;
+        mapping(address => uint8) funderVotingRound;
     }
 
     struct ProjectInfo {
@@ -158,11 +158,13 @@ contract StageRaise {
     //Modifier
 
     modifier onlyProjectOwner(uint32 _projectId) {
-        if (projectById[_projectId].basics.owner == address(0)) {
+
+        address _projectOwner = projectById[_projectId].basics.owner;
+        if (_projectOwner == address(0)) {
             revert StageRaise__ProjectNotFound();
         }
 
-        if (projectById[_projectId].basics.owner != msg.sender) {
+        if (_projectOwner != msg.sender) {
             revert StageRaise__CanOnlyBeCalledByProjectOwner();
         }
         _;
@@ -204,30 +206,37 @@ contract StageRaise {
 
         s_projectCount++;
 
+        ProjectBasics memory basics = ProjectBasics({
+            name: params.name,
+            description: params.description,
+            owner: msg.sender,
+            targetAmount: params.targetAmount,
+            isActive: true,
+            raisedAmount: 0,
+            deadline: params.deadline,
+            totalContributors: 0,
+            projectId: s_projectCount,
+            minFundingUSD: params.minFundingUSD,
+            maxFundingUSD: params.maxFundingUSD
+        });
+
+        ProjectMilestone memory milestone = ProjectMilestone({
+            milestoneCount: params.milestoneCount,
+            milestoneBased: params.milestoneBased,
+            milestoneStage: params.milestoneBased ? 1 : 0,
+            openForMilestoneVotingStage: false,
+            failedMilestoneStage: 0,
+            votesForYes: 0,
+            timeForMilestoneVotingProcess: params.timeForMileStoneVotingProcess,
+            timeForTheVotingProcessToElapsed: 0,
+            votesForNo: 0,
+            votingRound: 1
+        });
+
+       
         Project storage newProject = projectById[s_projectCount];
-
-        // Set basic project info
-        newProject.basics.name = params.name;
-        newProject.basics.owner = msg.sender;
-        newProject.basics.projectId = s_projectCount;
-        newProject.basics.description = params.description;
-        newProject.basics.targetAmount = params.targetAmount;
-        newProject.basics.raisedAmount = 0;
-        newProject.basics.deadline = params.deadline;
-        newProject.basics.isActive = true;
-        newProject.basics.totalContributors = 0;
-        newProject.basics.minFundingUSD = params.minFundingUSD;
-        newProject.basics.maxFundingUSD = params.maxFundingUSD;
-
-        // Set milestone info
-        newProject.milestone.milestoneCount = params.milestoneCount;
-        newProject.milestone.milestoneBased = params.milestoneBased;
-        newProject.milestone.timeForMilestoneVotingProcess = params.timeForMileStoneVotingProcess;
-        if (params.milestoneBased == true) {
-            newProject.milestone.milestoneStage = 1;
-        }
-
-        // Set financial info
+        newProject.basics = basics;
+        newProject.milestone = milestone;
         newProject.projectBalance = 0;
         newProject.amountWithdrawn = 0;
 
@@ -314,7 +323,7 @@ contract StageRaise {
         bool voteResult = project.milestone.votesForYes > project.milestone.votesForNo ? true : false;
         project.milestone.votesForNo = 0;
         project.milestone.votesForYes = 0;
-        resetVotersMapping(_projectId);
+        project.milestone.votingRound++;
         project.milestone.openForMilestoneVotingStage = false;
         emit ProjectVotingProcessFinalized(project.basics.name, _projectId, voteResult);
     }
@@ -354,7 +363,7 @@ contract StageRaise {
     {
         Project storage project = projectById[_projectId];
 
-        if (project.hasFunderVoted[msg.sender]) {
+        if (project.funderVotingRound[msg.sender] == project.milestone.votingRound) {
             revert StageRaise__FunderHasAlreadyVoted();
         }
 
@@ -369,18 +378,8 @@ contract StageRaise {
         } else {
             project.milestone.votesForNo += calculateFunderVotingPower(msg.sender, _projectId);
         }
-        project.voters.push(msg.sender);
-        project.hasFunderVoted[msg.sender] = true;
-    }
-
-    function resetVotersMapping(uint32 _projectId) private {
-        Project storage project = projectById[_projectId];
-
-        for (uint256 i = 0; i < project.voters.length; i++) {
-            project.hasFunderVoted[project.voters[i]] = false;
-        }
-
-        delete project.voters;
+   
+        project.funderVotingRound[msg.sender] = project.milestone.votingRound;
     }
 
     function requestRefund(uint32 _projectId) external onlyProjectFunder(_projectId) {
@@ -547,5 +546,14 @@ contract StageRaise {
 
     function getProjectVotingEndTime(uint32 _projectId) public view returns (uint64) {
         return projectById[_projectId].milestone.timeForTheVotingProcessToElapsed;
+    }
+
+    function hasFunderVotedInCurrentRound(uint32 _projectId, address _funder) public view returns (bool) {
+        Project storage project = projectById[_projectId];
+        return project.funderVotingRound[_funder] == project.milestone.votingRound;
+    }
+
+    function getCurrentVotingRound(uint32 _projectId) public view returns (uint8) {
+        return projectById[_projectId].milestone.votingRound;
     }
 }
