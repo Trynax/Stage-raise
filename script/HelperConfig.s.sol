@@ -2,15 +2,14 @@
 pragma solidity ^0.8.20;
 
 import {Script} from "forge-std/Script.sol";
-import {MockV3Aggregator} from "../test/mocks/MockV3Aggregator.sol";
+import {MockERC20} from "../test/mocks/MockERC20.sol";
 
 contract HelperConfig is Script {
     struct NetworkConfig {
-        address ethUsdPriceFeed;
+        address usdc;
+        address usdt;
+        address busd;
     }
-
-    uint8 public constant DECIMALS = 8;
-    int256 public constant INITIAL_PRICE = 2000e8; // $2000 ETH/USD
 
     NetworkConfig public activeNetworkConfig;
 
@@ -25,22 +24,34 @@ contract HelperConfig is Script {
     }
 
     function getSepoliaEthConfig() public pure returns (NetworkConfig memory) {
-        return NetworkConfig({ethUsdPriceFeed: 0x694AA1769357215DE4FAC081bf1f309aDC325306});
+        return NetworkConfig({
+            usdc: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238, // Sepolia USDC
+            usdt: 0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0, // Sepolia USDT
+            busd: 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238  // Using USDC as BUSD placeholder
+        });
     }
 
     function getMainnetEthConfig() public pure returns (NetworkConfig memory) {
-        return NetworkConfig({ethUsdPriceFeed: 0x5147eA642CAEF7BD9c1265AadcA78f997AbB9649});
+        return NetworkConfig({
+            usdc: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48,
+            usdt: 0xdAC17F958D2ee523a2206206994597C13D831ec7,
+            busd: 0x4Fabb145d64652a948d72533023f6E7A623C7C53
+        });
     }
 
     function getOrCreateAnvilEthConfig() public returns (NetworkConfig memory) {
-        if (activeNetworkConfig.ethUsdPriceFeed != address(0)) {
+        if (activeNetworkConfig.usdc != address(0)) {
             return activeNetworkConfig;
         }
 
         vm.startBroadcast();
-        MockV3Aggregator mockPriceFeed = new MockV3Aggregator(DECIMALS, INITIAL_PRICE);
+
+        MockERC20 usdc = new MockERC20("USD Coin", "USDC", 6);
+        MockERC20 usdt = new MockERC20("Tether USD", "USDT", 6);
+        MockERC20 busd = new MockERC20("Binance USD", "BUSD", 18);
+
         vm.stopBroadcast();
 
-        return NetworkConfig({ethUsdPriceFeed: address(mockPriceFeed)});
+        return NetworkConfig({usdc: address(usdc), usdt: address(usdt), busd: address(busd)});
     }
 }

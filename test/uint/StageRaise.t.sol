@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {StageRaise} from "../../src/StageRaise.sol";
 import {console} from "forge-std/console.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
+import {MockERC20} from "../mocks/MockERC20.sol";
 
 error StageRaise__DeadlineMustBeInFuture();
 error StageRaise__TargetAmountMustBeGreaterThanZero();
@@ -36,66 +37,90 @@ error StageRaise__YouCannotOpenNonMilestoneProjectForVoting();
 error StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing();
 error StageRaise__RefundIsNotAllowed();
 error StageRaise__ProjectHasFailedTooManyMilestones();
+error StageRaise__TokenNotSupported();
 
 contract StageRaiseTest is Test {
-    event ProjectCreated(string indexed name, uint88 indexed targetAmount, uint64 indexed deadline);
-    event ProjectFunded(string indexed name, uint88 indexed AmoutFunded, address indexed Funder);
-    event WithDrawnFromProject(string indexed name, uint88 indexed amountWithdrawn, address indexed Withdrawer);
+    event ProjectCreated(string indexed name, uint96 indexed targetAmount, uint64 indexed deadline);
+    event ProjectFunded(string indexed name, uint96 indexed AmoutFunded, address indexed Funder);
+    event WithDrawnFromProject(string indexed name, uint96 indexed amountWithdrawn, address indexed Withdrawer);
 
     event ProjectOpenedForVoting(string indexed name, uint64 indexed timeOpenForVoting, uint32 indexed projectId);
 
     event ProjectVotingProcessFinalized(string indexed name, uint32 indexed projectById, bool indexed voteResult);
 
     event RefundRequested(
-        string indexed projectName, uint32 indexed projectId, address indexed funder, uint88 refundAmount
+        string indexed projectName, uint32 indexed projectId, address indexed funder, uint96 refundAmount
     );
 
     StageRaise stageRaise;
+    MockERC20 usdc;
+    MockERC20 usdt;
+    MockERC20 busd;
+    
     address TRYNAX = payable(makeAddr("TRYNAX"));
 
     function setUp() public {
         HelperConfig helperConfig = new HelperConfig();
-        address ethUsdPriceFeed = helperConfig.activeNetworkConfig();
-        stageRaise = new StageRaise(ethUsdPriceFeed);
+        (address usdcAddr, address usdtAddr, address busdAddr) = helperConfig.activeNetworkConfig();
+        stageRaise = new StageRaise(usdcAddr, usdtAddr, busdAddr);
+        
+        usdc = MockERC20(usdcAddr);
+        usdt = MockERC20(usdtAddr);
+        busd = MockERC20(busdAddr);
 
-        vm.deal(TRYNAX, 10 ether);
+        // Mint tokens to test users
+        usdc.mint(address(this), 1_000_000e6); // 1M USDC
+        usdc.mint(TRYNAX, 1_000_000e6);
+        usdt.mint(address(this), 1_000_000e6); // 1M USDT
+        usdt.mint(TRYNAX, 1_000_000e6);
+        busd.mint(address(this), 1_000_000e18); // 1M BUSD
+        busd.mint(TRYNAX, 1_000_000e18);
+
+        // Approve stageRaise to spend tokens
+        usdc.approve(address(stageRaise), type(uint256).max);
+        usdt.approve(address(stageRaise), type(uint256).max);
+        busd.approve(address(stageRaise), type(uint256).max);
+
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Stage Raise",
                 description: "decentralized crowdfunding",
-                targetAmount: 10 ether,
+                targetAmount: 10_000e18, // 10k in 18 decimals
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18, // $1000 in 18 decimals
+                maxFunding: 50000e18, // $50000 in 18 decimals
+                paymentToken: address(usdc)
             })
         );
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Stage Raise 2",
                 description: "decentralized crowdfunding 2",
-                targetAmount: 3 ether,
+                targetAmount: 3000e18, // 3k in 18 decimals
                 deadline: uint64(block.timestamp + 30000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18, // $1000 in 18 decimals
+                maxFunding: 50000e18, // $50000 in 18 decimals
+                paymentToken: address(usdc)
             })
         );
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Stage Raise 3",
                 description: "decentralized crowdfunding 3",
-                targetAmount: 2 ether,
+                targetAmount: 2000e18, // 2k in 18 decimals
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18, // $1000 in 18 decimals
+                maxFunding: 50000e18, // $50000 in 18 decimals
+                paymentToken: address(usdc)
             })
         );
 
@@ -103,26 +128,28 @@ contract StageRaiseTest is Test {
             StageRaise.CreateProjectParams({
                 name: "Stage Raise 4",
                 description: "decentralized crowdfunding 4",
-                targetAmount: 3 ether,
+                targetAmount: 3000e18,
                 deadline: uint64(block.timestamp + 30000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
             })
         );
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Stage Raise 5",
                 description: "decentralized crowdfunding 5",
-                targetAmount: 3 ether,
+                targetAmount: 3000e18,
                 deadline: uint64(block.timestamp + 30000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
             })
         );
     }
@@ -136,35 +163,42 @@ contract StageRaiseTest is Test {
     }
 
     function testFundProject() external {
-        stageRaise.fundProject{value: 1 ether}(1);
+        // Fund with 1000 USDC (6 decimals)
+        stageRaise.fundProject(1, 1000e6);
 
         uint256 raisedAmount = stageRaise.getProjectBasicInfo(1).raisedAmount;
-          console.log(address(stageRaise).balance, raisedAmount);
+        console.log("Raised amount (normalized):", raisedAmount);
 
-        assert(raisedAmount == 1 ether);
-        assert(address(stageRaise).balance == 1 ether);
-
-      
+        // Should be normalized to 18 decimals: 1000e18
+        assert(raisedAmount == 1000e18);
+        assert(usdc.balanceOf(address(stageRaise)) == 1000e6);
     }
 
     function testWithdrawFunds() external {
         vm.startPrank(TRYNAX);
+        // Approve tokens for TRYNAX's usage
+        vm.stopPrank();
+        
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Stage Raise 6",
                 description: "decentralized crowdfunding 6",
-                targetAmount: 2 ether,
+                targetAmount: 2000e18, // 2k in 18 decimals
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
             })
         );
-        stageRaise.fundProject{value: 1 ether}(6);
+        stageRaise.fundProject(6, 1000e6); // Fund with 1000 USDC
         vm.warp(block.timestamp + 2000000);
-        stageRaise.withdrawFunds(1 ether, 6, payable(TRYNAX));
+        stageRaise.withdrawFunds(1000e6, 6, payable(TRYNAX)); // Withdraw 1000 USDC (not normalized)
         vm.stopPrank();
 
         assert(stageRaise.getProjectBalance(6) == 0);
@@ -178,8 +212,11 @@ contract StageRaiseTest is Test {
     }
 
     function testForTakingAVote() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6); // Fund with 1000 USDC
+        vm.stopPrank();
+        
         vm.warp(block.timestamp + 2000000);
         stageRaise.openProjectForMilestoneVotes(1);
 
@@ -191,8 +228,11 @@ contract StageRaiseTest is Test {
     }
 
     function testFinalizeVotingProcess() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6); // Fund with 1000 USDC
+        vm.stopPrank();
+        
         vm.warp(block.timestamp + 20000000);
 
         stageRaise.openProjectForMilestoneVotes(1);
@@ -207,8 +247,10 @@ contract StageRaiseTest is Test {
     }
 
     function testVotingNo() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6); // Fund with 1000 USDC
+        vm.stopPrank();
 
         vm.warp(block.timestamp + 25000);
         stageRaise.openProjectForMilestoneVotes(1);
@@ -221,8 +263,10 @@ contract StageRaiseTest is Test {
     }
 
     function testRequestRefundAfterThreeFailures() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 2 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 2000e6); // Fund with 2000 USDC
+        vm.stopPrank();
 
         vm.warp(block.timestamp + 25000);
         stageRaise.openProjectForMilestoneVotes(1);
@@ -231,7 +275,7 @@ contract StageRaiseTest is Test {
         vm.warp(block.timestamp + 300);
         stageRaise.finalizeVotingProcess(1);
 
-        stageRaise.withdrawFunds(400000000000000000, 1, payable(address(this)));
+        stageRaise.withdrawFunds(400e6, 1, payable(address(this))); // Withdraw 400 USDC
 
         for (uint256 i = 0; i < 3; i++) {
             vm.warp(block.timestamp + 25000);
@@ -244,10 +288,10 @@ contract StageRaiseTest is Test {
             stageRaise.finalizeVotingProcess(1);
         }
 
-        uint256 balanceBefore = TRYNAX.balance;
+        uint256 balanceBefore = usdc.balanceOf(TRYNAX);
         vm.prank(TRYNAX);
         stageRaise.requestRefund(1);
-        uint256 balanceAfter = TRYNAX.balance;
+        uint256 balanceAfter = usdc.balanceOf(TRYNAX);
 
         assert(balanceAfter > balanceBefore);
 
@@ -267,100 +311,84 @@ contract StageRaiseTest is Test {
         assertEq(projectCount, 5);
     }
 
-    function testGetEthPrice() external {
-        uint256 ethPrice = stageRaise.getEthPrice();
-
-        assert(ethPrice > 0);
+    function testGetProjectMinFunding() external {
+        uint256 minFunding = stageRaise.getProjectMinFunding(1);
+        assertEq(minFunding, 1000e18); // 18 decimals normalized
     }
 
-    function testGetAggregatorDecimals() external {
-        uint8 decimals = stageRaise.getAggregatorDecimals();
-
-        assertEq(decimals, 8);
-    }
-
-    function testGetUSDValue() external {
-        uint256 ethAmount = 1 ether;
-        uint256 usdValue = stageRaise.getUSDValue(ethAmount);
-        assert(usdValue >= 2000e8);
-    }
-
-    function testGetETHValue() external {
-        uint256 usdAmount = 2000e8;
-        uint256 ethValue = stageRaise.getETHValue(usdAmount);
-
-        assert(ethValue > 0);
-    }
-
-    function testGetProjectMinFundingUSD() external {
-        uint256 minFunding = stageRaise.getProjectMinFundingUSD(1);
-        assertEq(minFunding, 1000e8);
-    }
-
-    function testGetProjectMaxFundingUSD() external {
-        uint256 maxFunding = stageRaise.getProjectMaxFundingUSD(1);
-        assertEq(maxFunding, 50000e8);
+    function testGetProjectMaxFunding() external {
+        uint256 maxFunding = stageRaise.getProjectMaxFunding(1);
+        assertEq(maxFunding, 50000e18); // 18 decimals normalized
     }
 
     function testGetAmountWithdrawableForNonMilestoneProject() external {
         vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Non-Milestone Project",
                 description: "No milestones",
-                targetAmount: 5 ether,
+                targetAmount: 5000e18, // 5k in 18 decimals
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
             })
         );
 
-        stageRaise.fundProject{value: 3 ether}(6);
+        stageRaise.fundProject(6, 3000e6); // Fund with 3000 USDC
         vm.stopPrank();
 
         uint256 withdrawable = stageRaise.getAmountWithdrawableForAProject(6);
-        assert(withdrawable == 3 ether);
+        assert(withdrawable == 3000e6); // Returns denormalized amount
     }
 
     function testGetAmountWithdrawableForMilestoneProject() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 4 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 4000e6); // Fund with 4000 USDC
+        vm.stopPrank();
 
         uint256 withdrawable = stageRaise.getAmountWithdrawableForAProject(1);
-        assert(withdrawable == 800000000000000000);
+        // 20% of 4000 USDC = 800 USDC = 800e6
+        assert(withdrawable == 800e6);
     }
 
     function testGetProjectAmountWithdrawn() external {
         vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Withdrawal Test",
                 description: "Test amount withdrawn",
-                targetAmount: 5 ether,
+                targetAmount: 5000e18, // 5k in 18 decimals
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
             })
         );
 
-        stageRaise.fundProject{value: 3 ether}(6);
+        stageRaise.fundProject(6, 3000e6); // Fund with 3000 USDC
         vm.warp(block.timestamp + 25000);
-        stageRaise.withdrawFunds(1 ether, 6, payable(TRYNAX));
+        stageRaise.withdrawFunds(1000e6, 6, payable(TRYNAX)); // Withdraw 1000 USDC
         vm.stopPrank();
 
         uint256 amountWithdrawn = stageRaise.getProjectAmountWithdrawn(6);
-        assert(amountWithdrawn == 1 ether);
+        assert(amountWithdrawn == 1000e18); // Stored normalized (18 decimals)
     }
 
     function testGetProjectFailedMilestoneStage() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6); // Fund with 1000 USDC
+        vm.stopPrank();
 
         vm.warp(block.timestamp + 25000);
         stageRaise.openProjectForMilestoneVotes(1);
@@ -376,11 +404,13 @@ contract StageRaiseTest is Test {
     }
 
     function testGetProjectContributorAmount() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 2 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 2000e6); // Fund with 2000 USDC
+        vm.stopPrank();
 
         uint256 contributorAmount = stageRaise.getProjectContributorAmount(1, TRYNAX);
-        assert(contributorAmount == 2 ether);
+        assert(contributorAmount == 2000e18); // Stored normalized
 
         address nonContributor = makeAddr("NON_CONTRIBUTOR");
         uint256 nonContributorAmount = stageRaise.getProjectContributorAmount(1, nonContributor);
@@ -395,13 +425,14 @@ contract StageRaiseTest is Test {
             StageRaise.CreateProjectParams({
                 name: "Stage Raise 6",
                 description: "decentralized crowdfunding 6",
-                targetAmount: 2 ether,
+                targetAmount: 2000e18,
                 deadline: uint64(block.timestamp),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
             })
         );
     }
@@ -418,56 +449,58 @@ contract StageRaiseTest is Test {
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
             })
         );
     }
 
     function testFundProjectWithZero() external {
         vm.expectRevert(StageRaise__AmountToFundMustBeGreaterThanZero.selector);
-        stageRaise.fundProject{value: 0}(1);
+        stageRaise.fundProject(1, 0);
     }
 
     function testFundingNonExistingProject() external {
         vm.expectRevert(StageRaise__ProjectNotFound.selector);
-        stageRaise.fundProject{value: 2 ether}(100);
+        stageRaise.fundProject(100, 2000e6);
     }
 
     function testFundingProjectWithAmountAboveMaxUSD() external {
         vm.expectRevert(StageRaise__FundingAmountAboveMaximum.selector);
 
-        stageRaise.fundProject{value: 100 ether}(1);
+        stageRaise.fundProject(1, 100000e6); // 100k USDC (above max of 50k)
     }
 
     function testFundingProjectWithAmountBelowMinUSD() external {
         vm.expectRevert(StageRaise__FundingAmountBelowMinimum.selector);
-        stageRaise.fundProject{value: 0.001 ether}(1);
+        stageRaise.fundProject(1, 1e6); // 1 USDC (below min of 1000)
     }
 
     function testFundingProjectWithAmountGreaterThanTarget() external {
         vm.expectRevert(StageRaise__TotalRaiseCantSurpassTargetRaise.selector);
 
-        stageRaise.fundProject{value: 3 ether}(3);
+        stageRaise.fundProject(3, 3000e6); // Fund 3000 USDC when target is 2000
     }
 
     function testFundingProjectThatDeadlineHasPassed() external {
         vm.warp(block.timestamp + 20002);
         vm.expectRevert(StageRaise__DeadlineForFundingHasPassed.selector);
-        stageRaise.fundProject{value: 1 ether}(1);
+        stageRaise.fundProject(1, 1000e6); // 1000 USDC
     }
 
     function testWithdrawingByNonOwner() external {
         vm.startPrank(TRYNAX);
-        stageRaise.fundProject{value: 5 ether}(1);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 5000e6); // 5000 USDC
         vm.warp(block.timestamp + 200000);
         vm.expectRevert(StageRaise__CanOnlyBeCalledByProjectOwner.selector);
-        stageRaise.withdrawFunds(1 ether, 1, payable(TRYNAX));
+        stageRaise.withdrawFunds(1000e6, 1, payable(TRYNAX)); // Try to withdraw 1000 USDC
         vm.stopPrank();
     }
 
     function testWithdrawingZeroAmount() external {
-        stageRaise.fundProject{value: 5 ether}(1);
+        stageRaise.fundProject(1, 5000e6); // 5000 USDC
         vm.warp(block.timestamp + 200000);
         vm.expectRevert(StageRaise__AmountToWithdrawMustBeGreaterThanZero.selector);
         stageRaise.withdrawFunds(0, 1, payable(TRYNAX));
@@ -479,13 +512,14 @@ contract StageRaiseTest is Test {
             StageRaise.CreateProjectParams({
                 name: "Credula",
                 description: "Testing.... ",
-                targetAmount: 10 ether,
+                targetAmount: 10000e18,
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
             })
         );
     }
@@ -493,54 +527,58 @@ contract StageRaiseTest is Test {
     function testFundingInactiveProject() external {
         vm.warp(block.timestamp + 50000);
         vm.expectRevert(StageRaise__DeadlineForFundingHasPassed.selector);
-        stageRaise.fundProject{value: 1 ether}(1);
+        stageRaise.fundProject(1, 1000e6);
     }
 
     function testWithdrawMoreThanProjectBalance() external {
         vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Test Project",
                 description: "Test description",
-                targetAmount: 5 ether,
+                targetAmount: 5000e18,
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $10
-                maxFundingUSD: 10000e8 // $1000
+                minFunding: 1000e18,
+                maxFunding: 10000e18,
+                paymentToken: address(usdc)
             })
         );
 
-        stageRaise.fundProject{value: 2 ether}(6);
+        stageRaise.fundProject(6, 2000e6); // Fund 2000 USDC
         vm.warp(block.timestamp + 25000);
 
         vm.expectRevert(StageRaise__YouCannotWithdrawMoreThanTheProjectBalance.selector);
-        stageRaise.withdrawFunds(3 ether, 6, payable(TRYNAX));
+        stageRaise.withdrawFunds(3000e6, 6, payable(TRYNAX)); // Try to withdraw 3000 USDC
         vm.stopPrank();
     }
 
     function testWithdrawMoreThanWithdrawableBalance() external {
         vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Milestone Test",
                 description: "Test milestone project",
-                targetAmount: 5 ether,
+                targetAmount: 5000e18,
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 4,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $1000
-                maxFundingUSD: 50000e8 // $50000
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
             })
         );
 
-        stageRaise.fundProject{value: 4 ether}(6);
+        stageRaise.fundProject(6, 4000e6); // Fund 4000 USDC
         vm.warp(block.timestamp + 25000);
 
         vm.expectRevert(StageRaise__YouCannotWithdrawMoreThanWithdrawableBalance.selector);
-        stageRaise.withdrawFunds(2 ether, 6, payable(TRYNAX));
+        stageRaise.withdrawFunds(2000e6, 6, payable(TRYNAX)); // Try to withdraw 2000 (20% is 800)
         vm.stopPrank();
     }
 
@@ -555,8 +593,10 @@ contract StageRaiseTest is Test {
     }
 
     function testVotingOnClosedProject() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6);
+        vm.stopPrank();
 
         vm.prank(TRYNAX);
         vm.expectRevert(StageRaise__ProjectIsNotOpenForMilestoneVotingProcess.selector);
@@ -569,20 +609,23 @@ contract StageRaiseTest is Test {
             StageRaise.CreateProjectParams({
                 name: "Test Project",
                 description: "Test description",
-                targetAmount: 5 ether,
+                targetAmount: 5000e18,
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 3,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 0,
-                minFundingUSD: 1000e8, // $10
-                maxFundingUSD: 10000e8 // $1000
+                minFunding: 1000e18,
+                maxFunding: 10000e18,
+                paymentToken: address(usdc)
             })
         );
     }
 
     function testFunderVotingTwice() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6);
+        vm.stopPrank();
 
         vm.warp(block.timestamp + 25000);
         stageRaise.openProjectForMilestoneVotes(1);
@@ -596,8 +639,10 @@ contract StageRaiseTest is Test {
     }
 
     function testFinalizeVotingTooEarly() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6);
+        vm.stopPrank();
 
         vm.warp(block.timestamp + 25000);
         stageRaise.openProjectForMilestoneVotes(1);
@@ -607,8 +652,10 @@ contract StageRaiseTest is Test {
     }
 
     function testVotingAfterPeriodExpired() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6);
+        vm.stopPrank();
 
         vm.warp(block.timestamp + 25000);
         stageRaise.openProjectForMilestoneVotes(1);
@@ -622,44 +669,48 @@ contract StageRaiseTest is Test {
 
     function testWithdrawWhileFundingActive() external {
         vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Active Project",
                 description: "Still active for funding",
-                targetAmount: 5 ether,
+                targetAmount: 5000e18,
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $10
-                maxFundingUSD: 10000e8 // $1000
+                minFunding: 1000e18,
+                maxFunding: 10000e18,
+                paymentToken: address(usdc)
             })
         );
 
-        stageRaise.fundProject{value: 2 ether}(6);
+        stageRaise.fundProject(6, 2000e6);
 
         vm.expectRevert(StageRaise__CannotWithdrawWhileFundingIsActive.selector);
-        stageRaise.withdrawFunds(1 ether, 6, payable(TRYNAX));
+        stageRaise.withdrawFunds(1000e6, 6, payable(TRYNAX));
         vm.stopPrank();
     }
 
     function testOpenVotingForFinalMilestone() external {
         vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Final Milestone Test",
                 description: "Test final milestone",
-                targetAmount: 5 ether,
+                targetAmount: 5000e18,
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 2,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $10
-                maxFundingUSD: 10000e8 // $1000
+                minFunding: 1000e18,
+                maxFunding: 10000e18,
+                paymentToken: address(usdc)
             })
         );
 
-        stageRaise.fundProject{value: 2 ether}(6);
+        stageRaise.fundProject(6, 2000e6);
         vm.warp(block.timestamp + 25000);
 
         stageRaise.openProjectForMilestoneVotes(6);
@@ -674,17 +725,19 @@ contract StageRaiseTest is Test {
 
     function testOpenVotingForNonMilestoneProject() external {
         vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Non-Milestone Project",
                 description: "No milestones",
-                targetAmount: 5 ether,
+                targetAmount: 5000e18,
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $10
-                maxFundingUSD: 10000e8 // $1000
+                minFunding: 1000e18,
+                maxFunding: 10000e18,
+                paymentToken: address(usdc)
             })
         );
 
@@ -704,7 +757,7 @@ contract StageRaiseTest is Test {
 
     function testWithdrawFromNonExistentProject() external {
         vm.expectRevert(StageRaise__ProjectNotFound.selector);
-        stageRaise.withdrawFunds(1 ether, 999, payable(address(this)));
+        stageRaise.withdrawFunds(1000e6, 999, payable(address(this)));
     }
 
     function testCalculateFunderVotingPowerForNonExistentProject() external {
@@ -719,8 +772,10 @@ contract StageRaiseTest is Test {
     }
 
     function testOpenProjectForVotingAfterThreeFailures() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6);
+        vm.stopPrank();
 
         uint256 currentTime = block.timestamp;
 
@@ -744,21 +799,23 @@ contract StageRaiseTest is Test {
 
     function testRequestRefundOnNonMilestoneProject() external {
         vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Non-Milestone Project",
                 description: "No milestones",
-                targetAmount: 5 ether,
+                targetAmount: 5000e18,
                 deadline: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8,
-                maxFundingUSD: 10000e8
+                minFunding: 1000e18,
+                maxFunding: 10000e18,
+                paymentToken: address(usdc)
             })
         );
 
-        stageRaise.fundProject{value: 1 ether}(6);
+        stageRaise.fundProject(6, 1000e6);
 
         vm.expectRevert(StageRaise__RefundIsNotAllowed.selector);
         stageRaise.requestRefund(6);
@@ -766,8 +823,10 @@ contract StageRaiseTest is Test {
     }
 
     function testRequestRefundByNonFunder() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6);
+        vm.stopPrank();
 
         uint256 currentTime = block.timestamp;
 
@@ -791,8 +850,10 @@ contract StageRaiseTest is Test {
     }
 
     function testRequestRefundBeforeThreeFailures() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6);
+        vm.stopPrank();
 
         uint256 currentTime = block.timestamp;
 
@@ -825,41 +886,48 @@ contract StageRaiseTest is Test {
         vm.warp(2000);
         uint256 deadline = 4000;
 
-        vm.expectEmit(true, true, true, false);
-        emit ProjectCreated("Credula", 10 ether, uint64(deadline));
+        uint256 projectCountBefore = stageRaise.getProjectCount();
+        
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Credula",
                 description: "decentralized crowdfunding",
-                targetAmount: 10 ether,
+                targetAmount: 10000e18,
                 deadline: uint64(deadline),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
-                minFundingUSD: 1000e8, // $10
-                maxFundingUSD: 10000e8 // $1000
+                minFunding: 1000e18,
+                maxFunding: 10000e18,
+                paymentToken: address(usdc)
             })
         );
+        
+        uint256 projectCountAfter = stageRaise.getProjectCount();
+        assertEq(projectCountAfter, projectCountBefore + 1);
     }
 
     function testProjectFundedEvents() external {
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        
         vm.expectEmit(true, true, true, false);
-        emit ProjectFunded("Stage Raise", 1 ether, address(TRYNAX));
-
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        emit ProjectFunded("Stage Raise", 1000e18, address(TRYNAX)); // Normalized to 18 decimals
+        stageRaise.fundProject(1, 1000e6); // Fund with 1000 USDC
+        vm.stopPrank();
     }
 
     function testWithdrawFundsEvents() external {
-        stageRaise.fundProject{value: 5 ether}(1);
+        stageRaise.fundProject(1, 5000e6); // Fund with 5000 USDC
         vm.warp(block.timestamp + 2000000);
         vm.expectEmit(true, true, true, false);
-        emit WithDrawnFromProject("Stage Raise", 1 ether, address(this));
-        stageRaise.withdrawFunds(1 ether, 1, payable(TRYNAX));
+        emit WithDrawnFromProject("Stage Raise", 1000e6, address(this)); // Denormalized USDC amount
+        stageRaise.withdrawFunds(1000e6, 1, payable(TRYNAX)); // Withdraw 1000 USDC
     }
 
     function testProjectOpenedForVotingEvents() external {
-        stageRaise.fundProject{value: 1 ether}(1);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6);
         vm.warp(block.timestamp + 200000);
         vm.expectEmit(true, true, true, false);
         emit ProjectOpenedForVoting("Stage Raise", uint64(block.timestamp + 200), 1);
@@ -867,8 +935,11 @@ contract StageRaiseTest is Test {
     }
 
     function testFinalizedProjectEvents() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6);
+        vm.stopPrank();
+        
         vm.warp(block.timestamp + 20000000);
 
         stageRaise.openProjectForMilestoneVotes(1);
@@ -883,8 +954,10 @@ contract StageRaiseTest is Test {
     }
 
     function testRefundRequestedEvent() external {
-        vm.prank(TRYNAX);
-        stageRaise.fundProject{value: 1 ether}(1);
+        vm.startPrank(TRYNAX);
+        usdc.approve(address(stageRaise), type(uint256).max);
+        stageRaise.fundProject(1, 1000e6); // Fund with 1000 USDC
+        vm.stopPrank();
 
         uint256 currentTime = block.timestamp;
 
@@ -902,7 +975,7 @@ contract StageRaiseTest is Test {
         }
 
         vm.expectEmit(true, true, true, false);
-        emit RefundRequested("Stage Raise", 1, TRYNAX, 1 ether);
+        emit RefundRequested("Stage Raise", 1, TRYNAX, 1000e18); // Normalized amount
 
         vm.prank(TRYNAX);
         stageRaise.requestRefund(1);

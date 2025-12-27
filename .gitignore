@@ -76,3 +76,5 @@ remappings.txt
 *.s.sol.d
 *.t.sol.d
 
+
+docs/

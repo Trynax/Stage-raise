@@ -8,9 +8,10 @@ import {HelperConfig} from "./HelperConfig.s.sol";
 contract DeployStageRaise is Script {
     function run() external returns (StageRaise, HelperConfig) {
         HelperConfig helperConfig = new HelperConfig();
-        address ethUsdPriceFeed = helperConfig.activeNetworkConfig();
+        (address usdc, address usdt, address busd) = helperConfig.activeNetworkConfig();
+        
         vm.startBroadcast();
-        StageRaise stageRaise = new StageRaise(ethUsdPriceFeed);
+        StageRaise stageRaise = new StageRaise(usdc, usdt, busd);
         vm.stopBroadcast();
 
         return (stageRaise, helperConfig);
