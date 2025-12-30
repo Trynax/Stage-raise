@@ -61,10 +61,15 @@ error StageRaise__ProjectHasFailedTooManyMilestones();
 error StageRaise__TokenNotSupported();
 error StageRaise__InvalidTokenAddress();
 
+/// @title StageRaise - Decentralized funding with Milestone-Based Fund Release
+/// @author Trynax
+/// @notice A funding platform that supports stablecoin payments with milestone-based voting for fund release
+/// @dev Implements milestone voting system where funders vote on project progress before funds are released
 contract StageRaise is Ownable {
     using SafeERC20 for IERC20;
-    //Types
 
+    /// @notice Core project information optimized for gas efficiency
+    /// @dev Storage packed into 5+ slots (5 fixed + dynamic strings)
     struct ProjectBasics {
         // Slot 0: 32 bytes
         address owner;              // 20 bytes
@@ -86,6 +91,8 @@ contract StageRaise is Ownable {
         string description;
     }
 
+    /// @notice Milestone voting configuration and state
+    /// @dev Storage packed into 3 slots for gas efficiency
     struct ProjectMilestone {
         // Slot 0: 32 bytes
         uint64 timeForMilestoneVotingProcess;       // 8 bytes
@@ -102,6 +109,8 @@ contract StageRaise is Ownable {
         uint256 votesForNo;                         // 32 bytes
     }
 
+    /// @notice Complete project state including basics, milestones, and funder tracking
+    /// @dev Combines all project data with mappings for contributor tracking
     struct Project {
         ProjectBasics basics;           // 5+ slots (5 fixed + strings)
         ProjectMilestone milestone;     // 3 slots
@@ -113,6 +122,8 @@ contract StageRaise is Ownable {
         mapping(address => uint8) funderVotingRound;
     }
 
+    /// @notice Public view of project information for external queries
+    /// @dev Used by getProjectBasicInfo() to return project data
     struct ProjectInfo {
         address owner;
         address paymentToken;
@@ -130,6 +141,7 @@ contract StageRaise is Ownable {
         string description;
     }
 
+    /// @notice Parameters for creating a new project
     struct CreateProjectParams {
         address paymentToken;                   
         uint256 targetAmount;                  
@@ -143,26 +155,59 @@ contract StageRaise is Ownable {
         string description;
     }
 
+    /// @notice Mapping of project ID to project data
     mapping(uint32 => Project) public projectById;
+    
+    /// @notice Counter for generating unique project IDs
     uint32 private s_projectCount;
+    
+    /// @notice Stablecoin addresses that are accepted for funding
     mapping(address => bool) public supportedTokens;
+    
+    /// @notice Decimal places for each supported token (e.g., 6 for USDC, 18 for BUSD)
     mapping(address => uint8) public tokenDecimals;
 
-    //Events
-
+    /// @notice Emitted when a new project is created
+    /// @param name Project name
+    /// @param targetAmount Funding goal in normalized 18 decimals
+    /// @param deadline Timestamp when funding period ends
     event ProjectCreated(string indexed name, uint256 indexed targetAmount, uint64 indexed deadline);
+    
+    /// @notice Emitted when a project receives funding
+    /// @param name Project name
+    /// @param amountFunded Amount funded in normalized 18 decimals
+    /// @param funder Address of the funder
     event ProjectFunded(string indexed name, uint96 indexed amountFunded, address indexed funder);
 
+    /// @notice Emitted when project owner withdraws funds
+    /// @param name Project name
+    /// @param amountWithdrawn Amount withdrawn in token's native decimals
+    /// @param Withdrawer Address of the withdrawer
     event WithDrawnFromProject(string indexed name, uint96 indexed amountWithdrawn, address indexed Withdrawer);
 
+    /// @notice Emitted when a milestone project is opened for voting
+    /// @param name Project name
+    /// @param timeOpenForVoting Timestamp when voting period ends
+    /// @param projectId ID of the project
     event ProjectOpenedForVoting(string indexed name, uint64 indexed timeOpenForVoting, uint32 indexed projectId);
 
+    /// @notice Emitted when voting period ends and results are finalized
+    /// @param name Project name
+    /// @param projectById ID of the project
+    /// @param voteResult True if milestone passed, false if failed
     event ProjectVotingProcessFinalized(string indexed name, uint32 indexed projectById, bool indexed voteResult);
 
+    /// @notice Emitted when a funder requests a refund after 3 failed milestones
+    /// @param projectName Name of the project
+    /// @param projectId ID of the project
+    /// @param funder Address requesting refund
+    /// @param refundAmount Amount refunded in normalized 18 decimals
     event RefundRequested(
         string indexed projectName, uint32 indexed projectId, address indexed funder, uint96 refundAmount
     );
 
+    /// @notice Restricts function access to the project owner only
+    /// @param _projectId ID of the project to check ownership
     modifier onlyProjectOwner(uint32 _projectId) {
 
         address _projectOwner = projectById[_projectId].basics.owner;
@@ -176,6 +221,8 @@ contract StageRaise is Ownable {
         _;
     }
 
+    /// @notice Restricts function access to addresses that have funded the project
+    /// @param _projectId ID of the project to check funding status
     modifier onlyProjectFunder(uint32 _projectId) {
         if (projectById[_projectId].contributorsToAmountFunded[msg.sender] == 0) {
             revert StageRaise__AddressHasNotFundTheProject();
@@ -184,6 +231,7 @@ contract StageRaise is Ownable {
         _;
     }
 
+    /// @notice Initializes the contract with supported stablecoins
     constructor(address _usdc, address _usdt, address _busd) Ownable(msg.sender) {
         supportedTokens[_usdc] = true;
         tokenDecimals[_usdc] = 6;
@@ -197,6 +245,9 @@ contract StageRaise is Ownable {
 
     //Functions
 
+    /// @notice Adds a new supported stablecoin
+    /// @param _token Address of the stablecoin token
+    /// @param _decimals Number of decimals the token uses
     function addSupportedToken(address _token, uint8 _decimals) external onlyOwner {
         if (_token == address(0)) {
             revert StageRaise__InvalidTokenAddress();
@@ -205,6 +256,20 @@ contract StageRaise is Ownable {
         tokenDecimals[_token] = _decimals;
     }
 
+    /// @notice Removes a supported stablecoin
+    /// @param _token Address of the stablecoin token to remove
+    function removeSupportedToken(address _token) external onlyOwner {
+        if (_token == address(0)) {
+            revert StageRaise__InvalidTokenAddress();
+        }
+        supportedTokens[_token] = false;
+        tokenDecimals[_token] = 0;
+    }
+
+    
+    /// @notice Creates a new crowdfunding project
+    /// @dev All amounts are normalized to 18 decimals internally
+    /// @param params Project parameters including target, deadline, milestones, and token
     function createProject(CreateProjectParams memory params) external {
         if (block.timestamp >= params.deadline) {
             revert StageRaise__DeadlineMustBeInFuture();
@@ -269,6 +334,10 @@ contract StageRaise is Ownable {
         emit ProjectCreated(params.name, params.targetAmount, params.deadline);
     }
 
+    /// @notice Fund a project with stablecoins
+    /// @dev Amount is in token's native decimals, gets normalized internally
+    /// @param _projectId ID of the project to fund
+    /// @param _amount Amount to fund in token's native decimals
     function fundProject(uint32 _projectId, uint96 _amount) external {
         if (_amount <= 0) {
             revert StageRaise__AmountToFundMustBeGreaterThanZero();
@@ -315,6 +384,9 @@ contract StageRaise is Ownable {
         emit ProjectFunded(project.basics.name, uint96(normalizedAmount), msg.sender);
     }
 
+    /// @notice Opens a milestone project for community voting
+    /// @dev Only callable by project owner after funding period ends
+    /// @param _projectId ID of the project to open for voting
     function openProjectForMilestoneVotes(uint32 _projectId) external onlyProjectOwner(_projectId) {
         Project storage project = projectById[_projectId];
 
@@ -338,6 +410,9 @@ contract StageRaise is Ownable {
         emit ProjectOpenedForVoting(project.basics.name, project.milestone.timeForTheVotingProcessToElapsed, _projectId);
     }
 
+    /// @notice Finalizes the voting process and updates milestone stage based on results
+    /// @dev Can be called by anyone after voting period ends
+    /// @param _projectId ID of the project to finalize voting for
     function finalizeVotingProcess(uint32 _projectId) external {
         Project storage project = projectById[_projectId];
         if (!(block.timestamp >= project.milestone.timeForTheVotingProcessToElapsed)) {
@@ -361,6 +436,11 @@ contract StageRaise is Ownable {
         emit ProjectVotingProcessFinalized(project.basics.name, _projectId, voteResult);
     }
 
+    /// @notice Allows project owner to withdraw funds based on milestone progress
+    /// @dev Amount must be within withdrawable limit for current milestone stage
+    /// @param _amount Amount to withdraw in token's native decimals
+    /// @param _projectId ID of the project
+    /// @param _to Address to send withdrawn funds to
     function withdrawFunds(uint96 _amount, uint32 _projectId, address payable _to)
         external
         onlyProjectOwner(_projectId)
@@ -395,6 +475,10 @@ contract StageRaise is Ownable {
         emit WithDrawnFromProject(projectById[_projectId].basics.name, _amount, msg.sender);
     }
 
+    /// @notice Allows funders to vote on milestone completion
+    /// @dev Voting power is proportional to funding contribution
+    /// @param _projectId ID of the project to vote on
+    /// @param _vote True for yes (milestone passed), false for no (milestone failed)
     function takeAVoteForMilestoneStageIncrease(uint32 _projectId, bool _vote)
         external
         onlyProjectFunder(_projectId)
@@ -423,6 +507,9 @@ contract StageRaise is Ownable {
         project.funderVotingRound[msg.sender] = project.milestone.votingRound;
     }
 
+    /// @notice Allows funders to request a refund after 3 failed milestones
+    /// @dev Refund is proportional to contribution minus already withdrawn amounts
+    /// @param _projectId ID of the project to request refund from
     function requestRefund(uint32 _projectId) external onlyProjectFunder(_projectId) {
         Project storage project = projectById[_projectId];
 
@@ -463,8 +550,9 @@ contract StageRaise is Ownable {
         emit RefundRequested(project.basics.name, _projectId, msg.sender, amountToRefund);
     }
 
-    // view & pure functions
-
+    /// @notice Returns detailed information about a project
+    /// @param _projectId ID of the project to query
+    /// @return ProjectInfo struct containing all project details
     function getProjectBasicInfo(uint32 _projectId) public view returns (ProjectInfo memory) {
         Project storage p = projectById[_projectId];
 
@@ -486,6 +574,10 @@ contract StageRaise is Ownable {
         });
     }
 
+    /// @notice Calculates how much the project owner can currently withdraw
+    /// @dev For milestone projects, amount is based on completed stages
+    /// @param _projectId ID of the project to check
+    /// @return Maximum withdrawable amount in token's native decimals
     function getAmountWithdrawableForAProject(uint32 _projectId) public view returns (uint96) {
         Project storage project = projectById[_projectId];
         if (project.basics.owner == address(0)) {
@@ -507,6 +599,11 @@ contract StageRaise is Ownable {
         return uint96(_denormalizeAmount(normalizedWithdrawable, decimals));
     }
 
+    /// @notice Calculates a funder's voting power as a percentage of total raised
+    /// @dev Returns value in 18 decimals (1e18 = 100%)
+    /// @param _funder Address of the funder
+    /// @param _projectId ID of the project
+    /// @return votingPower Voting power from 0 to 1e18 (0% to 100%)
     function calculateFunderVotingPower(address _funder, uint32 _projectId)
         public
         view
@@ -528,77 +625,132 @@ contract StageRaise is Ownable {
         return votingPower;
     }
 
+    /// @notice Returns the total number of projects created
+    /// @return Total project count
     function getProjectCount() public view returns (uint32) {
         return s_projectCount;
     }
 
+    /// @notice Returns the current balance of a project in normalized 18 decimals
+    /// @param _projectId ID of the project
+    /// @return Project balance in 18 decimals
     function getProjectBalance(uint32 _projectId) public view returns (uint96) {
         return projectById[_projectId].projectBalance;
     }
 
+    /// @notice Returns total amount already withdrawn by project owner
+    /// @param _projectId ID of the project
+    /// @return Amount withdrawn in 18 decimals
     function getProjectAmountWithdrawn(uint32 _projectId) public view returns (uint96) {
         return projectById[_projectId].amountWithdrawn;
     }
 
+    /// @notice Returns the current milestone stage of a project
+    /// @param _projectId ID of the project
+    /// @return Current milestone stage (0 for non-milestone projects)
     function getProjectMilestoneStage(uint32 _projectId) public view returns (uint8) {
         return projectById[_projectId].milestone.milestoneStage;
     }
 
+    /// @notice Checks if a project is currently open for voting
+    /// @param _projectId ID of the project
+    /// @return True if voting is open, false otherwise
     function getProjectMileStoneVotingStatus(uint32 _projectId) public view returns (bool) {
         return projectById[_projectId].milestone.openForMilestoneVotingStage;
     }
 
+    /// @notice Returns the total 'yes' votes for current voting round
+    /// @param _projectId ID of the project
+    /// @return Total yes votes in 18 decimal format
     function getProjectYesVotes(uint32 _projectId) public view returns (uint256) {
         return projectById[_projectId].milestone.votesForYes;
     }
 
+    /// @notice Returns the total 'no' votes for current voting round
+    /// @param _projectId ID of the project
+    /// @return Total no votes in 18 decimal format
     function getProjectNoVotes(uint32 _projectId) public view returns (uint256) {
         return projectById[_projectId].milestone.votesForNo;
     }
 
+    /// @notice Returns the minimum funding amount per contribution
+    /// @param _projectId ID of the project
+    /// @return Minimum funding amount in 18 decimals
     function getProjectMinFunding(uint32 _projectId) public view returns (uint96) {
         return projectById[_projectId].basics.minFunding;
     }
 
+    /// @notice Returns the maximum funding amount per contributor
+    /// @param _projectId ID of the project
+    /// @return Maximum funding amount in 18 decimals
     function getProjectMaxFunding(uint32 _projectId) public view returns (uint96) {
         return projectById[_projectId].basics.maxFunding;
     }
 
+    /// @notice Returns the number of failed milestone votes
+    /// @param _projectId ID of the project
+    /// @return Number of failed milestones (max 3 before refunds allowed)
     function getProjectFailedMilestoneStage(uint32 _projectId) public view returns (uint8) {
         return projectById[_projectId].milestone.failedMilestoneStage;
     }
 
+    /// @notice Returns the amount a specific contributor has funded
+    /// @param _projectId ID of the project
+    /// @param _contributor Address of the contributor
+    /// @return Amount contributed in 18 decimals
     function getProjectContributorAmount(uint32 _projectId, address _contributor) public view returns (uint128) {
         return projectById[_projectId].contributorsToAmountFunded[_contributor];
     }
 
+    /// @notice Returns the timestamp when current voting period ends
+    /// @param _projectId ID of the project
+    /// @return Unix timestamp of voting end time
     function getProjectVotingEndTime(uint32 _projectId) public view returns (uint64) {
         return projectById[_projectId].milestone.timeForTheVotingProcessToElapsed;
     }
 
+    /// @notice Checks if a funder has voted in the current voting round
+    /// @param _projectId ID of the project
+    /// @param _funder Address of the funder
+    /// @return True if already voted, false otherwise
     function hasFunderVotedInCurrentRound(uint32 _projectId, address _funder) public view returns (bool) {
         Project storage project = projectById[_projectId];
         return project.funderVotingRound[_funder] == project.milestone.votingRound;
     }
 
+    /// @notice Returns the current voting round number
+    /// @param _projectId ID of the project
+    /// @return Current voting round (starts at 1)
     function getCurrentVotingRound(uint32 _projectId) public view returns (uint8) {
         return projectById[_projectId].milestone.votingRound;
     }
 
+    /// @notice Returns the payment token address for a project
+    /// @param _projectId ID of the project
+    /// @return Address of the stablecoin used for this project
     function getProjectPaymentToken(uint32 _projectId) public view returns (address) {
         return projectById[_projectId].basics.paymentToken;
     }
 
+    /// @notice Returns the decimal places for a token
+    /// @param _token Address of the token
+    /// @return Number of decimals (e.g., 6 for USDC, 18 for BUSD)
     function getTokenDecimals(address _token) public view returns (uint8) {
         return tokenDecimals[_token];
     }
 
+    /// @notice Checks if a token is supported for funding
+    /// @param _token Address of the token
+    /// @return True if token is supported, false otherwise
     function isTokenSupported(address _token) public view returns (bool) {
         return supportedTokens[_token];
     }
 
-    // Internal helper functions for normalization
-
+    /// @notice Converts token amount to normalized 18 decimal format
+    /// @dev Used internally for consistent calculations across different tokens
+    /// @param _amount Amount in token's native decimals
+    /// @param _decimals Number of decimals the token uses
+    /// @return Amount normalized to 18 decimals
     function _normalizeAmount(uint256 _amount, uint8 _decimals) internal pure returns (uint256) {
         if (_decimals == 18) {
             return _amount;
@@ -609,6 +761,11 @@ contract StageRaise is Ownable {
         }
     }
 
+    /// @notice Converts normalized 18 decimal amount back to token's native decimals
+    /// @dev Used internally when transferring tokens to users
+    /// @param _amount Amount in normalized 18 decimals
+    /// @param _decimals Number of decimals the token uses
+    /// @return Amount in token's native decimals
     function _denormalizeAmount(uint256 _amount, uint8 _decimals) internal pure returns (uint256) {
         if (_decimals == 18) {
             return _amount;
