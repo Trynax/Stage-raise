@@ -904,6 +904,18 @@ contract StageRaiseTest is Test {
         assertFalse(stageRaise.getProjectMileStoneVotingStatus(1));
     }
 
+    function testIsProjectVotingLive() external {
+        assertFalse(stageRaise.isProjectVotingLive(1));
+
+        vm.warp(block.timestamp + 25000);
+        stageRaise.openProjectForMilestoneVotes(1);
+        assertTrue(stageRaise.isProjectVotingLive(1));
+
+        uint64 votingEndTime = stageRaise.getProjectVotingEndTime(1);
+        vm.warp(votingEndTime + 1);
+        assertFalse(stageRaise.isProjectVotingLive(1));
+    }
+
     // Testing Events
 
     function testProjectCreatedEvents() external {

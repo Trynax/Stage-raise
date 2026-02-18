@@ -665,6 +665,28 @@ contract StageRaise is Ownable {
         return projectById[_projectId].milestone.openForMilestoneVotingStage;
     }
 
+    /// @notice Checks whether voting is currently live for a project
+    /// @dev Returns false if project doesn't exist, voting is closed, or voting end time has passed
+    /// @param _projectId ID of the project
+    /// @return True when voting is open and current time is within voting window
+    function isProjectVotingLive(uint32 _projectId) public view returns (bool) {
+        Project storage project = projectById[_projectId];
+        if (project.basics.owner == address(0)) {
+            return false;
+        }
+
+        if (!project.milestone.openForMilestoneVotingStage) {
+            return false;
+        }
+
+        uint64 votingEndTime = project.milestone.timeForTheVotingProcessToElapsed;
+        if (votingEndTime == 0) {
+            return false;
+        }
+
+        return block.timestamp <= votingEndTime;
+    }
+
     /// @notice Returns the total 'yes' votes for current voting round
     /// @param _projectId ID of the project
     /// @return Total yes votes in 18 decimal format
