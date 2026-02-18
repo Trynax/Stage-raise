@@ -28,7 +28,9 @@ contract StageRaiseIntegrationTest is Test {
     uint96 constant MIN_FUNDING = 1000e18; // $1000 in 18 decimals
     uint96 constant MAX_FUNDING = 50000e18; // $50000 in 18 decimals
 
-    event ProjectCreated(string indexed name, uint96 indexed targetAmount, uint64 indexed deadline);
+    event ProjectCreated(
+        string indexed name, uint96 indexed targetAmount, uint64 indexed fundingStart, uint64 fundingEnd
+    );
     event ProjectFunded(string indexed name, uint96 indexed amountFunded, address indexed funder);
     event WithDrawnFromProject(string indexed name, uint96 indexed amountWithdrawn, address indexed Withdrawer);
     event ProjectOpenedForVoting(string indexed name, uint64 indexed timeOpenForVoting, uint32 indexed projectId);
@@ -95,7 +97,8 @@ contract StageRaiseIntegrationTest is Test {
                 name: "Decentralized Social Media",
                 description: "Building the future of social media",
                 targetAmount: PROJECT_TARGET,
-                deadline: uint64(block.timestamp) + PROJECT_DEADLINE,
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp) + PROJECT_DEADLINE,
                 milestoneCount: MILESTONE_COUNT,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: VOTING_TIME,
@@ -259,7 +262,8 @@ contract StageRaiseIntegrationTest is Test {
                 name: "Simple Crowdfund",
                 description: "Simple crowdfunding without milestones",
                 targetAmount: 5000e18, // 5k in 18 decimals
-                deadline: uint64(block.timestamp) + PROJECT_DEADLINE,
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp) + PROJECT_DEADLINE,
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: VOTING_TIME,
@@ -300,7 +304,8 @@ contract StageRaiseIntegrationTest is Test {
                 name: "Project Alpha",
                 description: "First project",
                 targetAmount: 5000e18,
-                deadline: uint64(block.timestamp) + PROJECT_DEADLINE,
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp) + PROJECT_DEADLINE,
                 milestoneCount: 3,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: VOTING_TIME,
@@ -317,7 +322,8 @@ contract StageRaiseIntegrationTest is Test {
                 name: "Project Beta",
                 description: "Second project",
                 targetAmount: 3000e18,
-                deadline: uint64(block.timestamp) + PROJECT_DEADLINE,
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp) + PROJECT_DEADLINE,
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: VOTING_TIME,

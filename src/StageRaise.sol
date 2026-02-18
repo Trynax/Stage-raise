@@ -34,6 +34,7 @@ error StageRaise__ProjectNotActive();
 error StageRaise__ProjectNotFound();
 error StageRaise__TotalRaiseCantSurpassTargetRaise();
 error StageRaise__DeadlineForFundingHasPassed();
+error StageRaise__FundingHasNotStarted();
 error StageRaise__FundsCanOnlyBeWithdrawByProjectOwner();
 error StageRaise__ETHTransferFailed();
 error StageRaise__AmountToWithdrawMustBeGreaterThanZero();
@@ -61,6 +62,7 @@ error StageRaise__ProjectHasFailedTooManyMilestones();
 error StageRaise__TokenNotSupported();
 error StageRaise__InvalidTokenAddress();
 error StageRaise__ProjectIsAlreadyOpenForMilestoneVotingProcess();
+error StageRaise__FundingStartMustBeBeforeFundingEnd();
 
 /// @title StageRaise - Decentralized funding with Milestone-Based Fund Release
 /// @author Trynax
@@ -74,13 +76,14 @@ contract StageRaise is Ownable {
     struct ProjectBasics {
         // Slot 0: 32 bytes
         address owner;              // 20 bytes
-        uint64 deadline;            // 8 bytes
+        uint64 fundingStart;        // 8 bytes
         uint32 projectId;           // 4 bytes
         // Slot 1: 32 bytes
         address paymentToken;       // 20 bytes
         uint96 minFunding;          // 12 bytes
         // Slot 2: 32 bytes  
         uint96 maxFunding;          // 12 bytes
+        uint64 fundingEnd;          // 8 bytes
         uint24 totalContributors;   // 3 bytes
         bool isActive;              // 1 byte
         // Slot 3: 32 bytes
@@ -132,7 +135,8 @@ contract StageRaise is Ownable {
         uint256 raisedAmount;          
         uint96 minFunding;             
         uint96 maxFunding;             
-        uint64 deadline;
+        uint64 fundingStart;
+        uint64 fundingEnd;
         uint32 projectId;
         uint24 totalContributors;
         uint8 milestoneCount;
@@ -148,7 +152,8 @@ contract StageRaise is Ownable {
         uint256 targetAmount;                  
         uint96 minFunding;                     
         uint96 maxFunding;                     
-        uint64 deadline;
+        uint64 fundingStart;
+        uint64 fundingEnd;
         uint64 timeForMileStoneVotingProcess;
         uint8 milestoneCount;
         bool milestoneBased;
@@ -171,8 +176,14 @@ contract StageRaise is Ownable {
     /// @notice Emitted when a new project is created
     /// @param name Project name
     /// @param targetAmount Funding goal in normalized 18 decimals
-    /// @param deadline Timestamp when funding period ends
-    event ProjectCreated(string indexed name, uint256 indexed targetAmount, uint64 indexed deadline);
+    /// @param fundingStart Timestamp when funding period starts
+    /// @param fundingEnd Timestamp when funding period ends
+    event ProjectCreated(
+        string indexed name,
+        uint256 indexed targetAmount,
+        uint64 indexed fundingStart,
+        uint64 fundingEnd
+    );
     
     /// @notice Emitted when a project receives funding
     /// @param name Project name
@@ -270,9 +281,12 @@ contract StageRaise is Ownable {
     
     /// @notice Creates a new crowdfunding project
     /// @dev All amounts are normalized to 18 decimals internally
-    /// @param params Project parameters including target, deadline, milestones, and token
+    /// @param params Project parameters including target, funding window, milestones, and token
     function createProject(CreateProjectParams memory params) external {
-        if (block.timestamp >= params.deadline) {
+        if (params.fundingStart >= params.fundingEnd) {
+            revert StageRaise__FundingStartMustBeBeforeFundingEnd();
+        }
+        if (block.timestamp >= params.fundingEnd) {
             revert StageRaise__DeadlineMustBeInFuture();
         }
         if (params.targetAmount <= 0) {
@@ -304,11 +318,12 @@ contract StageRaise is Ownable {
             targetAmount: params.targetAmount,
             isActive: true,
             raisedAmount: 0,
-            deadline: params.deadline,
+            fundingStart: params.fundingStart,
             totalContributors: 0,
             projectId: s_projectCount,
             minFunding: params.minFunding,
             maxFunding: params.maxFunding,
+            fundingEnd: params.fundingEnd,
             paymentToken: params.paymentToken
         });
 
@@ -332,7 +347,7 @@ contract StageRaise is Ownable {
         newProject.projectBalance = 0;
         newProject.amountWithdrawn = 0;
 
-        emit ProjectCreated(params.name, params.targetAmount, params.deadline);
+        emit ProjectCreated(params.name, params.targetAmount, params.fundingStart, params.fundingEnd);
     }
 
     /// @notice Fund a project with stablecoins
@@ -366,7 +381,10 @@ contract StageRaise is Ownable {
         if (normalizedAmount + projectById[_projectId].basics.raisedAmount > projectById[_projectId].basics.targetAmount) {
             revert StageRaise__TotalRaiseCantSurpassTargetRaise();
         }
-        if (block.timestamp > projectById[_projectId].basics.deadline) {
+        if (block.timestamp < projectById[_projectId].basics.fundingStart) {
+            revert StageRaise__FundingHasNotStarted();
+        }
+        if (block.timestamp > projectById[_projectId].basics.fundingEnd) {
             projectById[_projectId].basics.isActive = false;
             revert StageRaise__DeadlineForFundingHasPassed();
         }
@@ -406,7 +424,7 @@ contract StageRaise is Ownable {
         if (project.milestone.milestoneStage >= project.milestone.milestoneCount) {
             revert StageRaise__ProjectHasReachedTheFinalMileStoneStage();
         }
-        if (project.basics.deadline >= block.timestamp) {
+        if (project.basics.fundingEnd >= block.timestamp) {
             revert StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing();
         }
         project.milestone.openForMilestoneVotingStage = true;
@@ -468,7 +486,7 @@ contract StageRaise is Ownable {
             revert StageRaise__YouCannotWithdrawMoreThanWithdrawableBalance();
         }
 
-        if (block.timestamp <= projectById[_projectId].basics.deadline) {
+        if (block.timestamp <= projectById[_projectId].basics.fundingEnd) {
             revert StageRaise__CannotWithdrawWhileFundingIsActive();
         }
 
@@ -569,7 +587,8 @@ contract StageRaise is Ownable {
             raisedAmount: p.basics.raisedAmount,
             minFunding: p.basics.minFunding,
             maxFunding: p.basics.maxFunding,
-            deadline: p.basics.deadline,
+            fundingStart: p.basics.fundingStart,
+            fundingEnd: p.basics.fundingEnd,
             projectId: p.basics.projectId,
             totalContributors: p.basics.totalContributors,
             milestoneCount: p.milestone.milestoneCount,
@@ -663,6 +682,18 @@ contract StageRaise is Ownable {
     /// @return True if voting is open, false otherwise
     function getProjectMileStoneVotingStatus(uint32 _projectId) public view returns (bool) {
         return projectById[_projectId].milestone.openForMilestoneVotingStage;
+    }
+
+    /// @notice Checks whether funding is currently live for a project
+    /// @param _projectId ID of the project
+    /// @return True if funding has started and has not ended yet
+    function isProjectFundingLive(uint32 _projectId) public view returns (bool) {
+        Project storage project = projectById[_projectId];
+        if (project.basics.owner == address(0) || !project.basics.isActive) {
+            return false;
+        }
+
+        return block.timestamp >= project.basics.fundingStart && block.timestamp <= project.basics.fundingEnd;
     }
 
     /// @notice Checks whether voting is currently live for a project

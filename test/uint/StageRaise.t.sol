@@ -14,6 +14,7 @@ error StageRaise__ProjectNotActive();
 error StageRaise__ProjectNotFound();
 error StageRaise__TotalRaiseCantSurpassTargetRaise();
 error StageRaise__DeadlineForFundingHasPassed();
+error StageRaise__FundingHasNotStarted();
 error StageRaise__FundsCanOnlyBeWithdrawByProjectOwner();
 error StageRaise__ETHTransferFailed();
 error StageRaise__AmountToWithdrawMustBeGreaterThanZero();
@@ -39,9 +40,12 @@ error StageRaise__RefundIsNotAllowed();
 error StageRaise__ProjectHasFailedTooManyMilestones();
 error StageRaise__TokenNotSupported();
 error StageRaise__ProjectIsAlreadyOpenForMilestoneVotingProcess();
+error StageRaise__FundingStartMustBeBeforeFundingEnd();
 
 contract StageRaiseTest is Test {
-    event ProjectCreated(string indexed name, uint96 indexed targetAmount, uint64 indexed deadline);
+    event ProjectCreated(
+        string indexed name, uint96 indexed targetAmount, uint64 indexed fundingStart, uint64 fundingEnd
+    );
     event ProjectFunded(string indexed name, uint96 indexed AmoutFunded, address indexed Funder);
     event WithDrawnFromProject(string indexed name, uint96 indexed amountWithdrawn, address indexed Withdrawer);
 
@@ -87,7 +91,8 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise",
                 description: "decentralized crowdfunding",
                 targetAmount: 10_000e18, // 10k in 18 decimals
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -101,7 +106,8 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 2",
                 description: "decentralized crowdfunding 2",
                 targetAmount: 3000e18, // 3k in 18 decimals
-                deadline: uint64(block.timestamp + 30000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 30000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -115,7 +121,8 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 3",
                 description: "decentralized crowdfunding 3",
                 targetAmount: 2000e18, // 2k in 18 decimals
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -130,7 +137,8 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 4",
                 description: "decentralized crowdfunding 4",
                 targetAmount: 3000e18,
-                deadline: uint64(block.timestamp + 30000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 30000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -144,7 +152,8 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 5",
                 description: "decentralized crowdfunding 5",
                 targetAmount: 3000e18,
-                deadline: uint64(block.timestamp + 30000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 30000),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -188,7 +197,8 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 6",
                 description: "decentralized crowdfunding 6",
                 targetAmount: 2000e18, // 2k in 18 decimals
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -330,7 +340,8 @@ contract StageRaiseTest is Test {
                 name: "Non-Milestone Project",
                 description: "No milestones",
                 targetAmount: 5000e18, // 5k in 18 decimals
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -366,7 +377,8 @@ contract StageRaiseTest is Test {
                 name: "Withdrawal Test",
                 description: "Test amount withdrawn",
                 targetAmount: 5000e18, // 5k in 18 decimals
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -420,14 +432,36 @@ contract StageRaiseTest is Test {
 
     // Testing Errors
 
-    function testCreatingProjectDeadlineMustBeInFuture() external {
+    function testCreatingProjectFundingWindowMustBeValid() external {
+        vm.expectRevert(StageRaise__FundingStartMustBeBeforeFundingEnd.selector);
+        stageRaise.createProject(
+            StageRaise.CreateProjectParams({
+                name: "Stage Raise 6",
+                description: "decentralized crowdfunding 6",
+                targetAmount: 2000e18,
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp),
+                milestoneCount: 5,
+                milestoneBased: true,
+                timeForMileStoneVotingProcess: 200,
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
+            })
+        );
+    }
+
+    function testCreatingProjectFundingEndMustBeInFuture() external {
+        vm.warp(2000);
+
         vm.expectRevert(StageRaise__DeadlineMustBeInFuture.selector);
         stageRaise.createProject(
             StageRaise.CreateProjectParams({
                 name: "Stage Raise 6",
                 description: "decentralized crowdfunding 6",
                 targetAmount: 2000e18,
-                deadline: uint64(block.timestamp),
+                fundingStart: 1500,
+                fundingEnd: 1999,
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -446,7 +480,8 @@ contract StageRaiseTest is Test {
                 name: "Stage Raise 7",
                 description: "decentralized crowdfunding 7",
                 targetAmount: 0,
-                deadline: uint64(block.timestamp + 200),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 200),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -490,6 +525,27 @@ contract StageRaiseTest is Test {
         stageRaise.fundProject(1, 1000e6); // 1000 USDC
     }
 
+    function testFundingProjectBeforeFundingStart() external {
+        stageRaise.createProject(
+            StageRaise.CreateProjectParams({
+                name: "Future Funding",
+                description: "Funding starts later",
+                targetAmount: 2000e18,
+                fundingStart: uint64(block.timestamp + 1 days),
+                fundingEnd: uint64(block.timestamp + 2 days),
+                milestoneCount: 0,
+                milestoneBased: false,
+                timeForMileStoneVotingProcess: 200,
+                minFunding: 1000e18,
+                maxFunding: 50000e18,
+                paymentToken: address(usdc)
+            })
+        );
+
+        vm.expectRevert(StageRaise__FundingHasNotStarted.selector);
+        stageRaise.fundProject(6, 1000e6);
+    }
+
     function testWithdrawingByNonOwner() external {
         vm.startPrank(TRYNAX);
         usdc.approve(address(stageRaise), type(uint256).max);
@@ -514,7 +570,8 @@ contract StageRaiseTest is Test {
                 name: "Credula",
                 description: "Testing.... ",
                 targetAmount: 10000e18,
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -539,7 +596,8 @@ contract StageRaiseTest is Test {
                 name: "Test Project",
                 description: "Test description",
                 targetAmount: 5000e18,
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -565,7 +623,8 @@ contract StageRaiseTest is Test {
                 name: "Milestone Test",
                 description: "Test milestone project",
                 targetAmount: 5000e18,
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 4,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -611,7 +670,8 @@ contract StageRaiseTest is Test {
                 name: "Test Project",
                 description: "Test description",
                 targetAmount: 5000e18,
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 3,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 0,
@@ -676,7 +736,8 @@ contract StageRaiseTest is Test {
                 name: "Active Project",
                 description: "Still active for funding",
                 targetAmount: 5000e18,
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -701,7 +762,8 @@ contract StageRaiseTest is Test {
                 name: "Final Milestone Test",
                 description: "Test final milestone",
                 targetAmount: 5000e18,
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 2,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
@@ -732,7 +794,8 @@ contract StageRaiseTest is Test {
                 name: "Non-Milestone Project",
                 description: "No milestones",
                 targetAmount: 5000e18,
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -814,7 +877,8 @@ contract StageRaiseTest is Test {
                 name: "Non-Milestone Project",
                 description: "No milestones",
                 targetAmount: 5000e18,
-                deadline: uint64(block.timestamp + 20000),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(block.timestamp + 20000),
                 milestoneCount: 0,
                 milestoneBased: false,
                 timeForMileStoneVotingProcess: 200,
@@ -916,6 +980,13 @@ contract StageRaiseTest is Test {
         assertFalse(stageRaise.isProjectVotingLive(1));
     }
 
+    function testIsProjectFundingLive() external {
+        assertTrue(stageRaise.isProjectFundingLive(1));
+
+        vm.warp(block.timestamp + 20002);
+        assertFalse(stageRaise.isProjectFundingLive(1));
+    }
+
     // Testing Events
 
     function testProjectCreatedEvents() external {
@@ -929,7 +1000,8 @@ contract StageRaiseTest is Test {
                 name: "Credula",
                 description: "decentralized crowdfunding",
                 targetAmount: 10000e18,
-                deadline: uint64(deadline),
+                fundingStart: uint64(block.timestamp),
+                fundingEnd: uint64(deadline),
                 milestoneCount: 5,
                 milestoneBased: true,
                 timeForMileStoneVotingProcess: 200,
