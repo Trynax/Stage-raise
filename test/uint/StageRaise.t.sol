@@ -38,6 +38,7 @@ error StageRaise__YouCannotOpenProjectVotingWhileFundingIsOngoing();
 error StageRaise__RefundIsNotAllowed();
 error StageRaise__ProjectHasFailedTooManyMilestones();
 error StageRaise__TokenNotSupported();
+error StageRaise__ProjectIsAlreadyOpenForMilestoneVotingProcess();
 
 contract StageRaiseTest is Test {
     event ProjectCreated(string indexed name, uint96 indexed targetAmount, uint64 indexed deadline);
@@ -755,6 +756,14 @@ contract StageRaiseTest is Test {
         stageRaise.openProjectForMilestoneVotes(1);
     }
 
+    function testOpenVotingWhileAlreadyOpen() external {
+        vm.warp(block.timestamp + 25000);
+        stageRaise.openProjectForMilestoneVotes(1);
+
+        vm.expectRevert(StageRaise__ProjectIsAlreadyOpenForMilestoneVotingProcess.selector);
+        stageRaise.openProjectForMilestoneVotes(1);
+    }
+
     function testWithdrawFromNonExistentProject() external {
         vm.expectRevert(StageRaise__ProjectNotFound.selector);
         stageRaise.withdrawFunds(1000e6, 999, payable(address(this)));
@@ -878,6 +887,21 @@ contract StageRaiseTest is Test {
     function testFinalizeVotingWhenNotOpen() external {
         vm.expectRevert(StageRaise__ProjectIsNotOpenForMilestoneVotingProcess.selector);
         stageRaise.finalizeVotingProcess(1);
+    }
+
+    function testFinalizeVotingResetsVotingEndTime() external {
+        vm.warp(block.timestamp + 25000);
+        stageRaise.openProjectForMilestoneVotes(1);
+
+        uint64 votingEndTime = stageRaise.getProjectVotingEndTime(1);
+        assertTrue(votingEndTime > 0);
+
+        vm.warp(votingEndTime + 1);
+        stageRaise.finalizeVotingProcess(1);
+
+        assertEq(stageRaise.getProjectVotingEndTime(1), 0);
+        assertEq(stageRaise.getCurrentVotingRound(1), 2);
+        assertFalse(stageRaise.getProjectMileStoneVotingStatus(1));
     }
 
     // Testing Events

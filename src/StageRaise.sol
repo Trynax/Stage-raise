@@ -60,6 +60,7 @@ error StageRaise__RefundIsNotAllowed();
 error StageRaise__ProjectHasFailedTooManyMilestones();
 error StageRaise__TokenNotSupported();
 error StageRaise__InvalidTokenAddress();
+error StageRaise__ProjectIsAlreadyOpenForMilestoneVotingProcess();
 
 /// @title StageRaise - Decentralized funding with Milestone-Based Fund Release
 /// @author Trynax
@@ -394,6 +395,10 @@ contract StageRaise is Ownable {
             revert StageRaise__YouCannotOpenNonMilestoneProjectForVoting();
         }
 
+        if (project.milestone.openForMilestoneVotingStage) {
+            revert StageRaise__ProjectIsAlreadyOpenForMilestoneVotingProcess();
+        }
+
         if (project.milestone.failedMilestoneStage >= 3) {
             revert StageRaise__ProjectHasFailedTooManyMilestones();
         }
@@ -431,6 +436,7 @@ contract StageRaise is Ownable {
         bool voteResult = project.milestone.votesForYes > project.milestone.votesForNo ? true : false;
         project.milestone.votesForNo = 0;
         project.milestone.votesForYes = 0;
+        project.milestone.timeForTheVotingProcessToElapsed = 0;
         project.milestone.votingRound++;
         project.milestone.openForMilestoneVotingStage = false;
         emit ProjectVotingProcessFinalized(project.basics.name, _projectId, voteResult);
